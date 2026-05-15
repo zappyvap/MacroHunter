@@ -1,0 +1,19 @@
+# Web Framework & Server
+fastapi
+uvicorn
+
+# AI Orchestration
+langchain
+langchain-anthropic
+langgraph
+
+# Model Context Protocol (MCP)
+mcp
+
+# Math & Optimization Engine
+pulp
+
+# Data Fetching & Security
+authlib
+httpx
+python-dotenv
