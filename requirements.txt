@@ -17,3 +17,6 @@ pulp
 authlib
 httpx
 python-dotenv
+
+bs4
+google-genai

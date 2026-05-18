@@ -1,6 +1,31 @@
 import pulp
+from mcp.server.fastmcp import FastMCP
+from typing import List, Dict, Any
 
-def optimizer(menu_items, target_calories, target_protein, target_carbs, target_fats):
+mcp = FastMCP("Calorie Optimizer")
+
+@mcp.tool()
+def optimizer(
+    menu_items: List[Dict[str, Any]], 
+    target_calories: float, 
+    target_protein: float, 
+    target_carbs: float, 
+    target_fats: float
+) -> dict:
+    """
+     This tool takes in a menu with macros and prices, along with a target macro goal,
+     and uses linear programming to find the optimal combination of menu items that meets the macro goals at the lowest cost.
+     The menu_items input should be a list of dictionaries, each with the following structure:
+     {
+        "name": "Food Item Name",
+        "protein": grams of protein,
+        "carbs": grams of carbs,
+        "fats": grams of fats,
+        "calories": total calories,
+        "price": cost of the item
+     }
+     
+     """
     # makes the model
     prob = pulp.LpProblem("Best_Effort_Macro_Optimization", pulp.LpMinimize)
     
@@ -65,4 +90,8 @@ def optimizer(menu_items, target_calories, target_protein, target_carbs, target_
         "gaps": {"cal" : slack_cal.varValue, "p": slack_p.varValue, "c": slack_c.varValue, "f": slack_f.varValue},
         "order": final_order
     }
+
+if __name__ == "__main__":
+    # This runs the server so LangGraph can connect to it
+    mcp.run()
 
