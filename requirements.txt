@@ -14,9 +14,8 @@ mcp
 pulp
 
 # Data Fetching & Security
-authlib
-httpx
 python-dotenv
 
-bs4
+
 google-genai
+pillow
