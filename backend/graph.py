@@ -4,6 +4,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+"""
+The general workflow of the app is as follows:
+1. User inputs either a search request or an image of a menu.
+2. If they input a search request, we search for the restaurants around them and get the menu items.
+3. If they input an image, we use Gemini's vision capabilities to translate the menu into text.
+4. We then take the menu items and optimize them for calories based on user preferences.
+5. Finally, we return the optimized menu to the user.
+"""
+
 # this is basically just the universal scope for all the nodes to update and read data from
 class State(TypedDict):
     restaurant_list: list[str] | None
