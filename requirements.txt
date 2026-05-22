@@ -6,6 +6,8 @@ uvicorn
 langchain
 langchain-anthropic
 langgraph
+langchain-core 
+langchain-google-genai
 
 # Model Context Protocol (MCP)
 mcp
@@ -15,7 +17,6 @@ pulp
 
 # Data Fetching & Security
 python-dotenv
-
 
 google-genai
 pillow

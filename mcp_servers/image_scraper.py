@@ -40,11 +40,13 @@ async def translate_menu(file: UploadFile = File(...)):
     Use this exact format:
     [
       {
-        "section": "Appetizers",
-        "name": "Spring Rolls",
-        "description": "Crispy rolls with vegetables",
-        "price": "$6.99"
-      }
+        "name": "Food Item Name",
+        "protein": grams of protein,
+        "carbs": grams of carbs,
+        "fats": grams of fats,
+        "calories": total calories,
+        "price": cost of the item
+     }
     ]
 
     If a field isn't visible, estimate based on information provided in the image.

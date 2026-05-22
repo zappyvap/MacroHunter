@@ -1,6 +1,17 @@
-from typing import TypedDict, Annotated
+from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 from dotenv import load_dotenv
+import sys
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from mcp_servers import restaurant_finder
+from mcp_servers import image_scraper
+from mcp_servers import calorie_optimizer
+from mcp_servers import chain_reader
+from mcp_servers import judge
 
 load_dotenv()
 
@@ -20,44 +31,76 @@ class State(TypedDict):
     menu_items: list[str] | None
     image_url : str | None
     searching_for_restaurant: bool
-
-
+    lat : float | None
+    lon : float | None
+    best_orders: list[str] | None
 
 graph_builder = StateGraph(State) # makes the graph
 
 # define all the nodes needed
-def find_restaurants(state : State) -> list[str]:
+def find_restaurants(state : State):
     # Placeholder for actual restaurant search logic
-    pass
+    print("📍 Routing: Finding nearby restaurants...")
+    return {"restaurant_list": ["Chipotle", "Burger King"]} 
 
-def get_menu_items(state : State) -> list[str]:
+def get_menu_items(state : State):
     # Placeholder for actual menu item retrieval logic
-    pass
+    print("🍔 Routing: Pulling database menus...")
+    return {"menu_items": ["Item 1", "Item 2"]}
 
-def image_translation(state : State) -> str:
+def image_translation(state : State):
     # Placeholder for actual image translation logic
-    pass 
+    print("📸 Routing: Using Gemini Vision on local menu...")
+    return {"menu_items": ["Scanned Item 1", "Scanned Item 2"]} 
 
-def optimize_calories(state : State) -> str:
+def optimize_calories(state : State):
     # Placeholder for actual calorie optimization logic
-    pass 
+    print("🧮 Routing: Running PuLP Math Engine...")
+    return {"current_restaurant": "Optimization Complete"} 
+
+def judge_node(state : State):
+    pass
 
 # add all the nodes to the graph
 # first parameter is name of node and second is the function that runs at that node.
-graph_builder.add_node(START, find_restaurants)
-graph_builder.add_node("get menus", get_menu_items)
+graph_builder.add_node("find_restaurants", find_restaurants)
+graph_builder.add_node("get_menus", get_menu_items)
 graph_builder.add_node("image_translation", image_translation)
 graph_builder.add_node("optimizer", optimize_calories)
+graph_builder.add_node("judge", judge_node)
+
+# add router for conditional path
+def route_user_input(state: State):
+    # If the boolean is True, go to the API path. If False, go to the Vision path.
+    if state.get("searching_for_restaurant") is True:
+        return "find_restaurants"
+    else:
+        return "image_translation"
 
 # conditional edge to change workflow based on user input
 graph_builder.add_conditional_edges(
     START, 
-    lambda state: state.get["searching_for_restaurant"],
-    {"True": "get menus", "False": "image_translation"}
+    route_user_input
 )
-graph_builder.add_edge("get menus", "optimizer")
+
+# The API Path
+graph_builder.add_edge("find_restaurants", "get_menus")
+graph_builder.add_edge("get_menus", "optimizer")
+
+# The Vision Path
 graph_builder.add_edge("image_translation", "optimizer")
-graph_builder.add_edge("optimizer", END) 
+
+graph_builder.add_edge("optimizer", "judge") 
+graph_builder.add_edge("judge", END)
 
 graph = graph_builder.compile()
 
+# --- QUICK TEST RUN ---
+if __name__ == "__main__":
+    print("\n--- TEST 1: The Chain Database Route ---")
+    test_state_1 = {"searching_for_restaurant": True}
+    graph.invoke(test_state_1)
+
+    print("\n--- TEST 2: The Local Vision Route ---")
+    test_state_2 = {"searching_for_restaurant": False, "image_url": "menu.jpg"}
+    graph.invoke(test_state_2)

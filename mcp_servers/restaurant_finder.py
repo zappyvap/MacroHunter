@@ -7,7 +7,7 @@ import os
 
 load_dotenv()
 mcp = FastMCP("Restaurant Finder")
-
+ 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 RESULT_LIMIT = 15
 

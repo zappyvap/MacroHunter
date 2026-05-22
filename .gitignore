@@ -3,3 +3,4 @@ project_overview.txt
 .env
 applebees_menu.mhtml
 applebees-menu-with-prices-scaled.webp
+/mcp_servers/__pycache__
