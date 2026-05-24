@@ -10,6 +10,10 @@ class UserRequest(BaseModel):
     searching_for_restaurant: bool
     latitude: float | None = None
     longitude: float | None = None
+    target_calories: float
+    target_protein: float
+    target_carbs: float
+    target_fats: float
 
 
 @app.post("/api/optimize-meal")
@@ -20,6 +24,11 @@ def run_macro_hunter(request: UserRequest):
         "searching_for_restaurant": request.searching_for_restaurant,
         "lat" : request.latitude,
         "lon" : request.longitude,
+        "target_calories": request.target_calories,
+        "target_protein": request.target_protein,
+        "target_carbs": request.target_carbs,
+        "target_fats": request.target_fats,
+        "current_restaurant_index": 0
     }
     
     # run graph agent
@@ -28,5 +37,5 @@ def run_macro_hunter(request: UserRequest):
     # return optimized meal plan to frontend
     return {
         "status": "success",
-        "meal_plan": final_state["current_restaurant"] 
+        "meal_plan": final_state["best_orders"] 
     }
