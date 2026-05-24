@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap');
@@ -36,7 +36,6 @@ const styles = `
     position: relative;
   }
 
-  /* Radar background */
   .radar-bg {
     position: fixed;
     top: -20%;
@@ -71,7 +70,6 @@ const styles = `
     to { transform: rotate(360deg); }
   }
 
-  /* Header */
   header {
     position: relative;
     z-index: 10;
@@ -141,7 +139,8 @@ const styles = `
     50% { opacity: 0.5; transform: scale(0.8); }
   }
 
-  /* Main */
+  .status-dot.denied { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
   main {
     position: relative;
     z-index: 10;
@@ -155,7 +154,6 @@ const styles = `
     margin: 0 auto;
   }
 
-  /* Left panel */
   .panel-left {
     display: flex;
     flex-direction: column;
@@ -193,7 +191,6 @@ const styles = `
     font-weight: 300;
   }
 
-  /* Calories big input */
   .calories-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -257,7 +254,6 @@ const styles = `
     box-shadow: 0 0 8px var(--accent-glow);
   }
 
-  /* Macros grid */
   .macros-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -336,7 +332,6 @@ const styles = `
     letter-spacing: 1px;
   }
 
-  /* Macro bars */
   .macro-bars {
     margin-top: 16px;
     display: flex;
@@ -372,7 +367,7 @@ const styles = `
 
   .mbar-val { width: 40px; text-align: right; font-size: 10px; }
 
-  /* Location */
+  /* Location card */
   .location-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -381,6 +376,21 @@ const styles = `
     display: flex;
     align-items: center;
     gap: 14px;
+    transition: border-color 0.3s;
+  }
+
+  .location-card.acquiring {
+    border-color: rgba(57,255,126,0.4);
+    animation: locPulse 1.2s ease-in-out infinite;
+  }
+
+  .location-card.denied {
+    border-color: rgba(255,69,69,0.4);
+  }
+
+  @keyframes locPulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    50% { box-shadow: 0 0 12px 4px var(--accent-glow); }
   }
 
   .loc-icon {
@@ -391,6 +401,13 @@ const styles = `
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
     color: var(--accent);
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .loc-icon.denied {
+    background: rgba(255,69,69,0.12);
+    border-color: var(--danger);
+    color: var(--danger);
   }
 
   .loc-text { flex: 1; }
@@ -406,18 +423,6 @@ const styles = `
     font-family: 'Barlow Condensed', sans-serif;
     letter-spacing: 1px;
   }
-
-  .loc-refresh {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .loc-refresh:hover { border-color: var(--accent); color: var(--accent); }
 
   /* Search button */
   .search-btn {
@@ -439,13 +444,19 @@ const styles = `
     box-shadow: 0 0 30px var(--accent-glow);
   }
 
-  .search-btn:hover {
+  .search-btn:hover:not(:disabled) {
     background: #55ffaa;
     box-shadow: 0 0 50px var(--accent-glow);
     transform: translateY(-1px);
   }
 
-  .search-btn:active { transform: translateY(0); }
+  .search-btn:active:not(:disabled) { transform: translateY(0); }
+
+  .search-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
 
   .search-btn.loading {
     background: var(--surface2);
@@ -504,7 +515,6 @@ const styles = `
     color: var(--muted);
   }
 
-  /* Filter pills */
   .filter-row {
     display: flex;
     gap: 8px;
@@ -532,7 +542,6 @@ const styles = `
     background: var(--accent-dim);
   }
 
-  /* Result cards */
   .results-list {
     display: flex;
     flex-direction: column;
@@ -685,7 +694,6 @@ const styles = `
   .score-mid { color: var(--carbs); border-color: var(--carbs); background: rgba(255,210,63,0.1); }
   .score-low { color: var(--muted); border-color: var(--border); }
 
-  /* Empty state */
   .empty-state {
     flex: 1;
     display: flex;
@@ -723,7 +731,6 @@ const styles = `
     line-height: 1.6;
   }
 
-  /* Skeleton */
   .skeleton-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -750,7 +757,9 @@ const styles = `
   }
 `;
 
-// Mock result data generator
+// ---------------------------------------------------------------------------
+// Mock result data — replace with real API response shape
+// ---------------------------------------------------------------------------
 const mockResults = (cals, protein, carbs, fats) => [
   {
     id: 1,
@@ -806,6 +815,9 @@ const mockResults = (cals, protein, carbs, fats) => [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 function ScoreTag({ score }) {
   const cls = score >= 90 ? "score-high" : score >= 75 ? "score-mid" : "score-low";
   return <span className={`result-score ${cls}`}>{score}% Match</span>;
@@ -838,50 +850,126 @@ function SkeletonCard() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 export default function MacroHunter() {
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fats, setFats] = useState("");
-  const [location, setLocation] = useState({ name: "Detecting location...", coords: null });
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
+  const [calories, setCalories]   = useState("");
+  const [protein,  setProtein]    = useState("");
+  const [carbs,    setCarbs]      = useState("");
+  const [fats,     setFats]       = useState("");
+
+  // locState: "idle" | "acquiring" | "ready" | "denied"
+  const [locState,  setLocState]  = useState("idle");
+  const [location,  setLocation]  = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
+
+  const [loading,      setLoading]      = useState(false);
+  const [results,      setResults]      = useState(null);
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const calMax = 3000;
+  const calMax  = 3000;
+  const calPct  = calories ? Math.min((+calories / calMax) * 100, 100) : 0;
+  const macroTotal = (+protein || 0) + (+carbs || 0) + (+fats || 0);
+  const filters = ["all", "closest", "best match", "< 1 mi", "restaurants", "meal prep"];
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({
-            name: "Current Location",
-            coords: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
-          });
-        },
-        () => {
-          setLocation({ name: "Location Unavailable", coords: "Enable GPS to search nearby" });
-        }
-      );
+  // -------------------------------------------------------------------------
+  // Step 1 — ask for geolocation via the browser's native permission prompt,
+  //           then proceed to the backend call once we have coords.
+  // -------------------------------------------------------------------------
+  const requestLocationThenSearch = () => {
+    if (!navigator.geolocation) {
+      setLocation({ name: "Geolocation not supported", coords: "Use a modern browser", lat: null, lng: null });
+      setLocState("denied");
+      return;
     }
-  }, []);
 
-  const handleSearch = async () => {
-    if (!calories || !protein || !carbs || !fats) return;
+    // Triggers the browser's official "Allow / Block" location dialog
+    setLocState("acquiring");
+    setLocation((prev) => ({ ...prev, name: "Requesting location…", coords: "Waiting for permission" }));
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLocState("ready");
+        setLocation({
+          name: "Current Location",
+          coords: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          lat,
+          lng,
+        });
+        // Location acquired — kick off the actual search
+        runSearch(lat, lng);
+      },
+      (err) => {
+        console.warn("Geolocation denied:", err.message);
+        setLocState("denied");
+        setLocation({ name: "Location Denied", coords: "Enable GPS in browser settings", lat: null, lng: null });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // -------------------------------------------------------------------------
+  // Step 2 — send nutrition goals + coords to your backend.
+  //           All the data you need is assembled in `payload` below.
+  // -------------------------------------------------------------------------
+  const runSearch = async (lat, lng) => {
     setLoading(true);
     setResults(null);
-    // Simulate API call — replace with real backend
-    await new Promise((r) => setTimeout(r, 2200));
-    setResults(mockResults(+calories, +protein, +carbs, +fats));
+
+    // ╔══════════════════════════════════════════════════════════════════════╗
+    // ║  🔌  BACKEND INTEGRATION POINT                                      ║
+    // ║                                                                      ║
+    // ║  `payload` matches your UserRequest Pydantic model exactly.         ║
+    // ║                                                                      ║
+    // ║  Replace the mock below with a real fetch(), e.g.:                   ║
+    // ║                                                                      ║
+    // ║    const res  = await fetch("https://your-api.com/meals/search", {   ║
+    // ║      method : "POST",                                                 ║
+    // ║      headers: { "Content-Type": "application/json" },                ║
+    // ║      body   : JSON.stringify(payload),                               ║
+    // ║    });                                                                ║
+    // ║    const data = await res.json();   // your results array            ║
+    // ║    setResults(data.results);        // map to UI shape if needed     ║
+    // ╚══════════════════════════════════════════════════════════════════════╝
+
+    // Matches: class UserRequest(BaseModel)
+    const payload = {
+      searching_for_restaurant: true,   // always true — user is hunting nearby restaurants
+      latitude:         lat,            // float | None  (null if location denied)
+      longitude:        lng,            // float | None  (null if location denied)
+      target_calories:  +calories,      // float
+      target_protein:   +protein,       // float
+      target_carbs:     +carbs,         // float
+      target_fats:      +fats,          // float
+    };
+
+     const res  = await fetch("http://127.0.0.1:8000", {  
+      method : "POST",                                               
+      headers: { "Content-Type": "application/json" },               
+      body   : JSON.stringify(payload),                              
+    });                                                               
+    const data = await res.json();   // your results array           
+    setResults(data.results);        // map to UI shape if needed
     setLoading(false);
   };
 
-  const calPct = calories ? Math.min((+calories / calMax) * 100, 100) : 0;
-  const macroTotal = (+protein || 0) + (+carbs || 0) + (+fats || 0);
+  // -------------------------------------------------------------------------
+  // Button handler — validates inputs, then triggers the location prompt
+  // -------------------------------------------------------------------------
+  const handleSearch = () => {
+    if (!calories || !protein || !carbs || !fats) return;
 
-  const filters = ["all", "closest", "best match", "< 1 mi", "restaurants", "meal prep"];
+    // If we already have a location, skip the prompt and search immediately
+    if (locState === "ready" && location.lat !== null) {
+      runSearch(location.lat, location.lng);
+    } else {
+      requestLocationThenSearch();
+    }
+  };
 
-  const filteredResults = results;
+  const isFormReady = calories && protein && carbs && fats;
 
   return (
     <>
@@ -892,7 +980,7 @@ export default function MacroHunter() {
           {[300, 240, 180, 120, 60].map((s, i) => (
             <div key={i} className="radar-ring" style={{ width: s, height: s }} />
           ))}
-          <div className="radar-sweep" style={{ width: "50%" }} />
+          <div className="radar-sweep" />
         </div>
 
         <header>
@@ -908,13 +996,16 @@ export default function MacroHunter() {
             <div className="logo-sub">Find your perfect meal</div>
           </div>
           <div className="header-right">
-            <div className="status-dot" />
-            GPS Active
+            <div className={`status-dot ${locState === "denied" ? "denied" : ""}`} />
+            {locState === "acquiring" ? "Acquiring GPS…"
+             : locState === "ready"   ? "GPS Active"
+             : locState === "denied"  ? "GPS Denied"
+             : "GPS Standby"}
           </div>
         </header>
 
         <main>
-          {/* LEFT PANEL */}
+          {/* ── LEFT PANEL ───────────────────────────────────────────────── */}
           <div className="panel-left">
             <div>
               <div className="section-label">Your Daily Target</div>
@@ -936,8 +1027,7 @@ export default function MacroHunter() {
                   placeholder="2000"
                   value={calories}
                   onChange={(e) => setCalories(e.target.value)}
-                  min={0}
-                  max={9999}
+                  min={0} max={9999}
                 />
                 <span className="cal-unit">kcal</span>
               </div>
@@ -951,9 +1041,9 @@ export default function MacroHunter() {
               <div className="section-label">Macro Targets</div>
               <div className="macros-grid">
                 {[
-                  { key: "protein", label: "Protein", color: "var(--protein)", cls: "protein", val: protein, set: setProtein },
-                  { key: "carbs", label: "Carbs", color: "var(--carbs)", cls: "carbs", val: carbs, set: setCarbs },
-                  { key: "fats", label: "Fats", color: "var(--fats)", cls: "fats", val: fats, set: setFats },
+                  { label: "Protein", color: "var(--protein)", cls: "protein", val: protein, set: setProtein },
+                  { label: "Carbs",   color: "var(--carbs)",   cls: "carbs",   val: carbs,   set: setCarbs   },
+                  { label: "Fats",    color: "var(--fats)",    cls: "fats",    val: fats,    set: setFats    },
                 ].map(({ label, color, cls, val, set }) => (
                   <div key={cls} className="macro-field">
                     <div className="macro-label">
@@ -977,15 +1067,15 @@ export default function MacroHunter() {
               {macroTotal > 0 && (
                 <div className="macro-bars">
                   <MacroBar label="PRO" value={+protein || 0} max={macroTotal} color="var(--protein)" />
-                  <MacroBar label="CHO" value={+carbs || 0} max={macroTotal} color="var(--carbs)" />
-                  <MacroBar label="FAT" value={+fats || 0} max={macroTotal} color="var(--fats)" />
+                  <MacroBar label="CHO" value={+carbs  || 0} max={macroTotal} color="var(--carbs)"   />
+                  <MacroBar label="FAT" value={+fats   || 0} max={macroTotal} color="var(--fats)"    />
                 </div>
               )}
             </div>
 
-            {/* Location */}
-            <div className="location-card">
-              <div className="loc-icon">
+            {/* Location status card */}
+            <div className={`location-card ${locState === "acquiring" ? "acquiring" : ""} ${locState === "denied" ? "denied" : ""}`}>
+              <div className={`loc-icon ${locState === "denied" ? "denied" : ""}`}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
@@ -993,40 +1083,29 @@ export default function MacroHunter() {
               </div>
               <div className="loc-text">
                 <div className="loc-name">{location.name}</div>
-                <div className="loc-coords">{location.coords || "Acquiring signal..."}</div>
+                <div className="loc-coords">
+                  {location.coords ?? (locState === "acquiring" ? "Waiting for browser prompt…" : "Will prompt when you search")}
+                </div>
               </div>
-              <button
-                className="loc-refresh"
-                onClick={() => window.location.reload()}
-                title="Refresh location"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                </svg>
-              </button>
             </div>
 
             {/* Search */}
             <button
               className={`search-btn ${loading ? "loading" : ""}`}
               onClick={handleSearch}
-              disabled={loading || !calories || !protein || !carbs || !fats}
+              disabled={loading || !isFormReady}
             >
               {loading ? (
-                <>
-                  <span className="spin">◈</span> &nbsp;Scanning Area...
-                </>
+                <><span className="spin">◈</span> &nbsp;Scanning Area…</>
+              ) : locState === "acquiring" ? (
+                <><span className="spin">◈</span> &nbsp;Awaiting Permission…</>
               ) : (
-                <>
-                  <div className="btn-shimmer" />
-                  ⌖ &nbsp;Hunt Meals Nearby
-                </>
+                <><div className="btn-shimmer" />⌖ &nbsp;Hunt Meals Nearby</>
               )}
             </button>
           </div>
 
-          {/* RIGHT PANEL */}
+          {/* ── RIGHT PANEL ──────────────────────────────────────────────── */}
           <div className="panel-right">
             <div className="results-header">
               <div className="results-title">
@@ -1044,24 +1123,20 @@ export default function MacroHunter() {
                     key={f}
                     className={`filter-pill ${activeFilter === f ? "active" : ""}`}
                     onClick={() => setActiveFilter(f)}
-                  >
-                    {f}
-                  </button>
+                  >{f}</button>
                 ))}
               </div>
             )}
 
             {loading && (
               <div className="results-list">
-                {[1, 2, 3].map((i) => (
-                  <SkeletonCard key={i} />
-                ))}
+                {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
               </div>
             )}
 
             {!loading && results && (
               <div className="results-list">
-                {filteredResults.map((r, i) => (
+                {results.map((r, i) => (
                   <div
                     key={r.id}
                     className={`result-card ${r.topPick ? "top-pick" : ""}`}
@@ -1078,18 +1153,9 @@ export default function MacroHunter() {
                         <span>📍 {r.distance}</span>
                       </div>
                       <div className="result-macros">
-                        <div className="rmacro">
-                          <span className="rmacro-label">Protein</span>
-                          <span className="rmacro-val p">{r.protein}g</span>
-                        </div>
-                        <div className="rmacro">
-                          <span className="rmacro-label">Carbs</span>
-                          <span className="rmacro-val c">{r.carbs}g</span>
-                        </div>
-                        <div className="rmacro">
-                          <span className="rmacro-label">Fats</span>
-                          <span className="rmacro-val f">{r.fats}g</span>
-                        </div>
+                        <div className="rmacro"><span className="rmacro-label">Protein</span><span className="rmacro-val p">{r.protein}g</span></div>
+                        <div className="rmacro"><span className="rmacro-label">Carbs</span><span className="rmacro-val c">{r.carbs}g</span></div>
+                        <div className="rmacro"><span className="rmacro-label">Fats</span><span className="rmacro-val f">{r.fats}g</span></div>
                       </div>
                     </div>
                     <div className="result-right">
