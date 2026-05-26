@@ -2,8 +2,16 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 # import the langgraph agent from the other file
 from graph import graph 
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # define input from user
 class UserRequest(BaseModel):
