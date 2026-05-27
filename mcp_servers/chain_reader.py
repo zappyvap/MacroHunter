@@ -10,74 +10,94 @@ dotenv.load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 mcp = FastMCP("Chain Restaurant Menu Search Tool")
 
-
-def get_macro(nutrients: list, macro_name: str) -> int:
-    """Extract and clean a macro value from a nutrients list."""
-    for n in nutrients:
-        if n.get("name", "").lower() == macro_name.lower():
-            value = n.get("amount", 0)
-            if not value:
-                return 0
-            if isinstance(value, (int, float)):
-                return int(value)
-            return int(float(str(value).replace("g", "").strip() or 0))
-    return 0
-
+def get_fatsecret_token():
+    """Exchanges your Client ID and Secret for a temporary OAuth 2.0 Access Token."""
+    client_id = os.getenv("FATSECRET_CLIENT_ID")
+    client_secret = os.getenv("FATSECRET_CLIENT_SECRET")
+    
+    token_url = "https://oauth.fatsecret.com/connect/token"
+    
+    # We use Basic Auth to securely pass the ID and Secret
+    response = requests.post(
+        token_url,
+        auth=(client_id, client_secret),
+        data={
+            "grant_type": "client_credentials",
+            "scope": "basic"
+        }
+    )
+    response.raise_for_status()
+    return response.json().get("access_token")
 
 @mcp.tool()
-def search_chain_restaurant(restaurant_name: str, num_items: int = 6) -> str:
+def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     """
-    Searches the Spoonacular database for menu items from a chain restaurant,
-    fetches full nutrition data for each item, and uses Gemini to batch-estimate prices.
-
-    Args:
-        restaurant_name: The name of the chain restaurant to search (e.g. "McDonald's").
-        num_items: How many menu items to return. Defaults to 6 to stay within free tier limits.
+    Searches FatSecret's database for chain restaurant items and fetches macros.
     """
-    api_key = os.getenv("SPOONACULAR_API_KEY")
-    if not api_key:
-        return "Error: Missing SPOONACULAR_API_KEY."
+    try:
+        access_token = get_fatsecret_token()
+    except Exception as e:
+        return f"Error authenticating with FatSecret: {e}"
 
-    # --- Step 1: Search for menu items ---
-    search_url = "https://api.spoonacular.com/food/menuItems/search"
-    search_params = {
-        "query": restaurant_name,
-        "apiKey": api_key,
-        "number": num_items,
+    # --- Step 1: Search the FatSecret Database ---
+    search_url = "https://platform.fatsecret.com/rest/server.api"
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    
+    params = {
+        "method": "foods.search",
+        "search_expression": restaurant_name,
+        "format": "json",
+        "max_results": num_items
     }
 
     try:
-        search_response = requests.get(search_url, params=search_params)
-        search_response.raise_for_status()
-        search_data = search_response.json()
+        response = requests.get(search_url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
     except Exception as e:
-        return f"Error fetching search results from Spoonacular: {str(e)}"
+        return f"Error fetching from FatSecret: {str(e)}"
 
-    if "menuItems" not in search_data or not search_data["menuItems"]:
+    # FatSecret's JSON structure puts results inside foods -> food
+    foods_data = data.get("foods", {}).get("food", [])
+    if not foods_data:
         return "[]"
+        
+    # If there's only one result, FatSecret returns a dict instead of a list
+    if isinstance(foods_data, dict):
+        foods_data = [foods_data]
 
-    # --- Step 2: Fetch full nutrition data for each item individually ---
-    detailed_items = []
-    for item in search_data["menuItems"]:
-        item_id = item.get("id")
-        if not item_id:
-            continue
-        detail_url = f"https://api.spoonacular.com/food/menuItems/{item_id}"
-        try:
-            detail_response = requests.get(detail_url, params={"apiKey": api_key})
-            detail_response.raise_for_status()
-            detailed_items.append(detail_response.json())
-        except Exception as e:
-            # If a single item fails, skip it rather than failing the whole request
-            print(f"Warning: Could not fetch details for item {item_id}: {e}")
-            continue
-
-    if not detailed_items:
-        return "[]"
+    # --- Step 2: Extract Data and Prepare for Gemini ---
+    extracted_foods = []
+    item_names = []
+    
+    for item in foods_data:
+        name = item.get("food_name", "Unknown")
+        # FatSecret returns macros as a single string description we need to parse
+        # Example: "Per 100g - Calories: 250kcal | Fat: 10.00g | Carbs: 30.00g | Protein: 15.00g"
+        desc = item.get("food_description", "")
+        
+        # Simple extraction logic to pull out the raw numbers
+        macros = {"Calories": 0, "Protein": 0, "Carbs": 0, "Fat": 0}
+        parts = desc.replace("kcal", "").replace("g", "").split("|")
+        for part in parts:
+            if "Calories" in part: macros["Calories"] = float(part.split(":")[1].strip())
+            elif "Protein" in part: macros["Protein"] = float(part.split(":")[1].strip())
+            elif "Carbs" in part: macros["Carbs"] = float(part.split(":")[1].strip())
+            elif "Fat" in part: macros["Fat"] = float(part.split(":")[1].strip())
+            
+        extracted_foods.append({
+            "name": name,
+            "calories": int(macros["Calories"]),
+            "protein": int(macros["Protein"]),
+            "carbs": int(macros["Carbs"]),
+            "fats": int(macros["Fat"])
+        })
+        item_names.append(name)
 
     # --- Step 3: Batch-estimate prices with one Gemini call ---
-    item_names = [item.get("title", "Unknown") for item in detailed_items]
-
     system_instruction = """
     You are a professional price estimator.
     I will give you a list of fast food items from a specific restaurant.
@@ -102,28 +122,22 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 6) -> str:
 
     # --- Step 4: Build the normalized menu ---
     normalized_menu = []
-
-    for item in detailed_items:
-        item_name = item.get("title", "Unknown Item")
-        nutrients = item.get("nutrition", {}).get("nutrients", [])
-
+    for food in extracted_foods:
         try:
-            item_price = float(estimated_prices.get(item_name, 10.0))
+            price = float(estimated_prices.get(food["name"], 10.0))
         except (ValueError, TypeError):
-            item_price = 10.0
-
-        normalized_item = {
-            "name": item_name,
-            "calories": get_macro(nutrients, "Calories"),
-            "protein": get_macro(nutrients, "Protein"),
-            "carbs": get_macro(nutrients, "Carbohydrates"),
-            "fats": get_macro(nutrients, "Fat"),
-            "price": item_price,
-        }
-        normalized_menu.append(normalized_item)
+            price = 10.0
+            
+        normalized_menu.append({
+            "name": food["name"],
+            "calories": food["calories"],
+            "protein": food["protein"],
+            "carbs": food["carbs"],
+            "fats": food["fats"],
+            "price": price
+        })
 
     return json.dumps(normalized_menu)
-
 
 if __name__ == "__main__":
     mcp.run()

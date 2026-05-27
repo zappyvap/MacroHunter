@@ -117,11 +117,7 @@ def optimize_calories(state: State):
 def judge_node(state: State):
     print("⚖️  Routing: Judging best meals...")
     result = judge(
-        state["best_orders"],
-        state["target_calories"],
-        state["target_protein"],
-        state["target_carbs"],
-        state["target_fats"]
+        state["best_orders"]
     )
     return {"final_orders": result}
 

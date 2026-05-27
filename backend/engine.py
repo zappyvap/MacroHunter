@@ -45,5 +45,5 @@ def run_macro_hunter(request: UserRequest):
     # return optimized meal plan to frontend
     return {
         "status": "success",
-        "meal_plan": final_state["best_orders"] 
+        "results": final_state["best_orders"] 
     }
