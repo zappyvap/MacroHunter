@@ -27,7 +27,6 @@ const styles = `
   body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
   .app { min-height: 100vh; display: flex; flex-direction: column; position: relative; }
   
-  /* Hide the AI-gimmick radar background but keep it in the DOM */
   .radar-bg, .radar-ring, .radar-sweep { display: none; }
   
   header { padding: 24px 48px 0; display: flex; align-items: center; gap: 12px; }
@@ -246,21 +245,35 @@ function LocationCard({ locState, location }) {
 
 // ─── ResultCard ───────────────────────────────────────────────────────────────
 function ResultCard({ result, index }) {
-  const { name, dish, type, distance, cal, protein, carbs, fats, topPick, score } = result;
+  const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
+  const { cal, p, c, f } = achieved_macros;
+  const restaurantName = restaurant?.name ?? "Unknown";
+
+  const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
+  const score = Math.max(0, Math.round(100 - totalGap));
+  const topPick = status === "Optimal";
+
+  const dishSummary = order
+    .filter(o => o.quantity > 0)
+    .map(o => `${o.quantity}x ${o.item}`)
+    .join(", ");
+
   return (
     <div className={`result-card ${topPick ? "top-pick" : ""}`} style={{ animationDelay: `${index * 0.07}s` }}>
       {topPick && <div className="top-badge">⚡ Top Pick</div>}
       <div>
-        <div className="result-name">{name}</div>
+        <div className="result-name">{dishSummary || "Custom Order"}</div>
         <div className="result-meta">
-          <span>{dish}</span><span className="result-meta-sep">·</span>
-          <span>{type}</span><span className="result-meta-sep">·</span>
-          <span>📍 {distance}</span>
+          <span>{restaurantName}</span>
+          <span className="result-meta-sep">·</span>
+          <span>{status}</span>
+          <span className="result-meta-sep">·</span>
+          <span>💰 ${total_cost}</span>
         </div>
         <div className="result-macros">
-          <div className="rmacro"><span className="rmacro-label">Protein</span><span className="rmacro-val p">{protein}g</span></div>
-          <div className="rmacro"><span className="rmacro-label">Carbs</span>  <span className="rmacro-val c">{carbs}g</span></div>
-          <div className="rmacro"><span className="rmacro-label">Fats</span>   <span className="rmacro-val f">{fats}g</span></div>
+          <div className="rmacro"><span className="rmacro-label">Protein</span><span className="rmacro-val p">{p}g</span></div>
+          <div className="rmacro"><span className="rmacro-label">Carbs</span><span className="rmacro-val c">{c}g</span></div>
+          <div className="rmacro"><span className="rmacro-label">Fats</span><span className="rmacro-val f">{f}g</span></div>
         </div>
       </div>
       <div className="result-right">
@@ -272,30 +285,21 @@ function ResultCard({ result, index }) {
 }
 
 // ─── ResultsPanel ─────────────────────────────────────────────────────────────
-const FILTERS = ["all", "closest", "best match", "< 1 mi", "restaurants", "meal prep"];
-
 function ResultsPanel({ loading, results }) {
-  const [activeFilter, setActiveFilter] = useState("all");
   return (
     <div className="panel-right">
       <div className="results-header">
-        <div className="results-title">{results ? "Nearby Matches" : loading ? "Scanning..." : "Results"}</div>
+        <div className="results-title">
+          {results ? "Nearby Matches" : loading ? "Optimizing..." : "Results"}
+        </div>
         {results && <div className="results-count">{results.length} locations found</div>}
       </div>
-      {(results || loading) && (
-        <div className="filter-row">
-          {FILTERS.map(f => (
-            <button key={f} className={`filter-pill ${activeFilter === f ? "active" : ""}`}
-              onClick={() => setActiveFilter(f)}>{f}</button>
-          ))}
-        </div>
-      )}
       {loading && (
-        <div className="results-list">{[1,2,3].map(i => <SkeletonCard key={i} />)}</div>
+        <div className="results-list">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>
       )}
       {!loading && results && (
-        <div className="results-list">
-          {results.map((r, i) => <ResultCard key={r.id} result={r} index={i} />)}
+        <div className="results-list" style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
+          {results.map((r, i) => <ResultCard key={i} result={r} index={i} />)}
         </div>
       )}
       {!loading && !results && (
@@ -336,10 +340,10 @@ function HunterPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await res.json();
-      setResults(data.results);
+      setResults(data.results); 
     } catch (err) {
       console.error("Search failed:", err);
-      setResults([]);
+      setResults(null);
     } finally {
       setLoading(false);
     }
@@ -432,19 +436,12 @@ function AppLayout({ locState, children }) {
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
-//
-// To add more pages:
-//   1. Define a new function component above (e.g. function SettingsPage() { ... })
-//   2. Add a <Route path="/settings" element={<SettingsPage />} /> below
-//
 export default function App() {
   return (
     <BrowserRouter>
       <AppLayout>
         <Routes>
           <Route path="/"  element={<HunterPage />} />
-          {/* <Route path="/history"  element={<HistoryPage />} /> */}
-          {/* <Route path="/settings" element={<SettingsPage />} /> */}
           <Route path="*"  element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>

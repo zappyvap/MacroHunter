@@ -17,6 +17,7 @@ def optimizer(
      and uses linear programming to find the optimal combination of menu items that meets the macro goals at the lowest cost.
      The menu_items input should be a list of dictionaries, each with the following structure:
      {
+        "restaurant": "Restaurant Name",
         "name": "Food Item Name",
         "protein": grams of protein,
         "carbs": grams of carbs,
@@ -88,7 +89,9 @@ def optimizer(
         "total_cost": round(pulp.value(pulp.lpSum([item["price"] * item_vars[item["name"]] for item in menu_items])), 2),
         "achieved_macros": {"cal" : actual_cal, "p": actual_p, "c": actual_c, "f": actual_f},
         "gaps": {"cal" : slack_cal.varValue, "p": slack_p.varValue, "c": slack_c.varValue, "f": slack_f.varValue},
-        "order": final_order
+        "order": final_order,
+        "restaurant": menu_items[0]["restaurant"]
+        
     }
 
 if __name__ == "__main__":

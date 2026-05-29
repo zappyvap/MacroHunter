@@ -10,6 +10,7 @@ dotenv.load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 mcp = FastMCP("Chain Restaurant Menu Search Tool")
 
+# this function is just because FatSecret needs a OAuth 2.0 token to use their API
 def get_fatsecret_token():
     """Exchanges your Client ID and Secret for a temporary OAuth 2.0 Access Token."""
     client_id = os.getenv("FATSECRET_CLIENT_ID")
@@ -29,6 +30,8 @@ def get_fatsecret_token():
     response.raise_for_status()
     return response.json().get("access_token")
 
+# this tool takes in the restaurant name and the number of items we search and then returns a menu that
+# holds all the information of the items on that restaurants menu
 @mcp.tool()
 def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     """
@@ -134,7 +137,8 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
             "protein": food["protein"],
             "carbs": food["carbs"],
             "fats": food["fats"],
-            "price": price
+            "price": price,
+            "restaurant": restaurant_name
         })
 
     return json.dumps(normalized_menu)

@@ -41,9 +41,11 @@ def run_macro_hunter(request: UserRequest):
     
     # run graph agent
     final_state = graph.invoke(initial_state)
-    
+    print("final_state keys:", final_state.keys())
+    print("final_orders:", final_state.get("final_orders"))
+    print("best_orders:", final_state.get("best_orders"))
     # return optimized meal plan to frontend
     return {
         "status": "success",
-        "results": final_state["best_orders"] 
+        "results": final_state["final_orders"] 
     }
