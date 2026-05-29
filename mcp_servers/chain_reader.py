@@ -42,40 +42,67 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     except Exception as e:
         return f"Error authenticating with FatSecret: {e}"
 
-    # --- Step 1: Search the FatSecret Database ---
+    # only search for restaurants that FatSecret actually has data for
+    KNOWN_CHAINS = [
+        "mcdonald", "burger king", "wendy", "subway", "chipotle", "taco bell",
+        "domino", "pizza hut", "little caesar", "papa john", "kfc", "chick-fil-a",
+        "popeyes", "five guys", "shake shack", "in-n-out", "sonic", "dairy queen",
+        "dunkin", "starbucks", "panera", "olive garden", "applebee", "chili",
+        "outback", "red lobster", "ihop", "denny", "waffle house", "cracker barrel",
+        "panda express", "raising cane", "wingstop", "buffalo wild wings", "hooters",
+        "cheesecake factory", "texas roadhouse", "longhorn", "red robin"
+    ]
+    name_lower = restaurant_name.lower()
+    if not any(chain in name_lower for chain in KNOWN_CHAINS):
+        return "[]"
+
+    # search FatSecret
     search_url = "https://platform.fatsecret.com/rest/server.api"
     
+    # uses the token to access it
     headers = {
         "Authorization": f"Bearer {access_token}"
     }
     
+    # needed to use more specific search parameters to get the 
+    # correct menu items
     params = {
         "method": "foods.search",
         "search_expression": restaurant_name,
         "format": "json",
-        "max_results": num_items
+        "max_results": num_items,
     }
 
+    # fetches the data
     try:
         response = requests.get(search_url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
+        print("RAW FATSECRET RESPONSE:", json.dumps(data, indent=2))
     except Exception as e:
         return f"Error fetching from FatSecret: {str(e)}"
 
-    # FatSecret's JSON structure puts results inside foods -> food
+    # extract the list of foods from the response
     foods_data = data.get("foods", {}).get("food", [])
-    if not foods_data:
-        return "[]"
-        
-    # If there's only one result, FatSecret returns a dict instead of a list
     if isinstance(foods_data, dict):
         foods_data = [foods_data]
+    if not foods_data:
+        return "[]"
 
-    # --- Step 2: Extract Data and Prepare for Gemini ---
+    # filter to only keep items actually from that restaurant
+    restaurant_lower = restaurant_name.lower()
+    foods_data = [
+        f for f in foods_data
+        if restaurant_lower in f.get("brand_name", "").lower()
+        or restaurant_lower in f.get("food_name", "").lower()
+    ]
+    if not foods_data:
+        return "[]"
+
+    # We then get the names and macros for each item
     extracted_foods = []
     item_names = []
-    
+
     for item in foods_data:
         name = item.get("food_name", "Unknown")
         # FatSecret returns macros as a single string description we need to parse
@@ -90,7 +117,7 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
             elif "Protein" in part: macros["Protein"] = float(part.split(":")[1].strip())
             elif "Carbs" in part: macros["Carbs"] = float(part.split(":")[1].strip())
             elif "Fat" in part: macros["Fat"] = float(part.split(":")[1].strip())
-            
+
         extracted_foods.append({
             "name": name,
             "calories": int(macros["Calories"]),
@@ -100,7 +127,7 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
         })
         item_names.append(name)
 
-    # --- Step 3: Batch-estimate prices with one Gemini call ---
+    # We then have Gemini estimate the price
     system_instruction = """
     You are a professional price estimator.
     I will give you a list of fast food items from a specific restaurant.
@@ -123,7 +150,7 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
         print(f"Warning: Gemini price estimation failed: {e}")
         estimated_prices = {}
 
-    # --- Step 4: Build the normalized menu ---
+    # Finally, we build the menu to return
     normalized_menu = []
     for food in extracted_foods:
         try:

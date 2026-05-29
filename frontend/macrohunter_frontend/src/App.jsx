@@ -247,7 +247,9 @@ function LocationCard({ locState, location }) {
 function ResultCard({ result, index }) {
   const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
   const { cal, p, c, f } = achieved_macros;
-  const restaurantName = restaurant?.name ?? "Unknown";
+  const restaurantName = typeof restaurant === "string" 
+  ? restaurant 
+  : restaurant?.name ?? "Unknown";
 
   const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
   const score = Math.max(0, Math.round(100 - totalGap));

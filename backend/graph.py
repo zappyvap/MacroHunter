@@ -67,7 +67,7 @@ def get_menu_items(state: State):
     print("🍔 Routing: Pulling database menus...")
     index = state.get("current_restaurant_index", 0)
     current = state["restaurant_list"][index]
-    result = chain_reader(current)
+    result = chain_reader(current["name"])
     result = json.loads(result) if isinstance(result, str) else result
     return {"menu_items": result, "current_restaurant": current}
 
@@ -100,6 +100,11 @@ def image_translation(state: State):
 # move to the next restaurant if needed.
 def optimize_calories(state: State):
     print("🧮 Routing: Running PuLP Math Engine...")
+    if not state.get("menu_items"):
+        return {
+            "best_orders": [],
+            "current_restaurant_index": state.get("current_restaurant_index", 0) + 1
+        }
     result = calorie_optimizer(
         state["menu_items"],
         state["target_calories"],
@@ -108,7 +113,10 @@ def optimize_calories(state: State):
         state["target_fats"]
     )
     return {
-        "best_orders": [result],
+        "best_orders": [{
+            **result,
+            "restaurant": state.get("current_restaurant", "Unknown")  # ← full object
+        }],
         "current_restaurant_index": state.get("current_restaurant_index", 0) + 1
     }
 

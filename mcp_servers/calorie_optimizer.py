@@ -78,11 +78,10 @@ def optimizer(
             final_order.append({"item": item["name"], "quantity": int(qty)})
 
     # Calculate what we actually achieved
-    actual_p = sum(i["protein"] * item_vars[i["name"]].varValue for i in menu_items)
-    actual_c = sum(i["carbs"] * item_vars[i["name"]].varValue for i in menu_items)
-    actual_f = sum(i["fats"] * item_vars[i["name"]].varValue for i in menu_items)
-    actual_cal = sum(i["calories"] * item_vars[i["name"]].varValue for i in menu_items)
-
+    actual_p = sum(i["protein"] * (item_vars[i["name"]].varValue or 0) for i in menu_items)
+    actual_c = sum(i["carbs"] * (item_vars[i["name"]].varValue or 0) for i in menu_items)
+    actual_f = sum(i["fats"] * (item_vars[i["name"]].varValue or 0) for i in menu_items)
+    actual_cal = sum(i["calories"] * (item_vars[i["name"]].varValue or 0) for i in menu_items)
     # returns readable json for the AI to parse.
     return {
         "status": "Optimal" if (slack_p.varValue + slack_c.varValue + slack_f.varValue) == 0 else "Best Effort",
