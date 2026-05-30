@@ -1,5 +1,6 @@
 from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
+from langgraph.types import Send
 from dotenv import load_dotenv
 import sys
 import os
@@ -29,17 +30,20 @@ The general workflow of the app is as follows:
 5. Finally, we return the optimized menu to the user.
 """
 
-# this is basically just the universal scope for all the nodes to update and read data from
+# this is basically just the universal scope for all the nodes to update and read data from.
+# note: menu_items and current_restaurant are no longer written to shared state in the
+# parallel path — each branch keeps them as local variables inside fetch_and_optimize
+# to avoid the InvalidUpdateError that occurs when multiple branches write to the
+# same plain (non-reducer) key in the same step.
 class State(TypedDict):
     restaurant_list: list[str] | None
-    current_restaurant: str | None
-    current_restaurant_index: int | None
-    menu_items: list[str] | None
+    current_restaurant_index: int | None  # used by Send() to tell each branch which restaurant to handle
+    menu_items: list[str] | None          # only used by the vision path (single branch)
     image_url: str | None
     searching_for_restaurant: bool
     lat: float | None
     lon: float | None
-    best_orders: Annotated[list[str], add]
+    best_orders: Annotated[list[str], add]  # add reducer safely merges writes from all parallel branches
     target_calories: float
     target_protein: float
     target_carbs: float
@@ -60,16 +64,45 @@ def find_restaurants(state: State):
     ))
     return {"restaurant_list": result}
 
-# this node gets the menu items for a specific restaurant from our database
-# it uses the current_restaurant_index to know which restaurant to pull from the list and
-# then updates the menu items and current restaurant in the state
-def get_menu_items(state: State):
+# this node combines menu fetching and calorie optimization into a single step
+# for the parallel path. previously these were two separate nodes (get_menus and
+# optimizer) connected by an edge, but splitting them caused an InvalidUpdateError
+# because all parallel branches tried to write menu_items and current_restaurant
+# to shared state simultaneously. by merging them here, each branch keeps its
+# menu data as a local variable and only writes to best_orders at the end,
+# which is safe because best_orders uses the Annotated[list, add] reducer.
+def fetch_and_optimize(state: State):
     print("🍔 Routing: Pulling database menus...")
     index = state.get("current_restaurant_index", 0)
     current = state["restaurant_list"][index]
+
+    # get the menu items for this specific restaurant
     result = chain_reader(current["name"])
-    result = json.loads(result) if isinstance(result, str) else result
-    return {"menu_items": result, "current_restaurant": current}
+    menu_items = json.loads(result) if isinstance(result, str) else result
+
+    if not menu_items:
+        return {"best_orders": []}
+
+    # this is the calorie optimization node that uses linear programming to find the best
+    # combination of menu items based on user macro targets.
+    # each parallel branch runs this independently on its own restaurant's menu.
+    print("🧮 Routing: Running PuLP Math Engine...")
+    result = calorie_optimizer(
+        menu_items,
+        state["target_calories"],
+        state["target_protein"],
+        state["target_carbs"],
+        state["target_fats"]
+    )
+
+    # only write to best_orders — the add reducer merges all parallel branch results
+    # by concatenation once every branch finishes, before judge runs.
+    return {
+        "best_orders": [{
+            **result,
+            "restaurant": current  # ← full object
+        }]
+    }
 
 # this is when the user uploads a picture instead of searching for restaurants
 def image_translation(state: State):
@@ -94,17 +127,12 @@ def image_translation(state: State):
     )
     return {"menu_items": response.json()}
 
-# this is the calorie optimization node that uses linear programming to find the best
-# combination of menu items based on user macro targets.
-# It then updates the best orders in the state and increments the restaurant index to
-# move to the next restaurant if needed.
+# this is the calorie optimization node for the vision path only.
+# the parallel restaurant path uses fetch_and_optimize instead.
 def optimize_calories(state: State):
     print("🧮 Routing: Running PuLP Math Engine...")
     if not state.get("menu_items"):
-        return {
-            "best_orders": [],
-            "current_restaurant_index": state.get("current_restaurant_index", 0) + 1
-        }
+        return {"best_orders": []}
     result = calorie_optimizer(
         state["menu_items"],
         state["target_calories"],
@@ -115,13 +143,14 @@ def optimize_calories(state: State):
     return {
         "best_orders": [{
             **result,
-            "restaurant": state.get("current_restaurant", "Unknown")  # ← full object
-        }],
-        "current_restaurant_index": state.get("current_restaurant_index", 0) + 1
+            "restaurant": "Uploaded Menu"
+        }]
     }
 
 # finally the judge node takes all the best orders from all the restaurants and puts them against each other
 # to see the best overall meals. It then returns the same orders but sorted by the best to worst.
+# because all parallel branches feed into best_orders before judge runs, this node
+# always receives the full set of results regardless of how many restaurants were found.
 def judge_node(state: State):
     print("⚖️  Routing: Judging best meals...")
     result = judge(
@@ -132,7 +161,7 @@ def judge_node(state: State):
 # add all the nodes to the graph
 # first parameter is name of node and second is the function that runs at that node.
 graph_builder.add_node("find_restaurants", find_restaurants)
-graph_builder.add_node("get_menus", get_menu_items)
+graph_builder.add_node("fetch_and_optimize", fetch_and_optimize)
 graph_builder.add_node("image_translation", image_translation)
 graph_builder.add_node("optimizer", optimize_calories)
 graph_builder.add_node("judge", judge_node)
@@ -145,27 +174,36 @@ def route_user_input(state: State):
     else:
         return "image_translation"
 
-def route_after_optimizer(state: State):
-    current_restaurant_index = state.get("current_restaurant_index", 0)
-    if current_restaurant_index < len(state.get("restaurant_list") or []):
-        return "get_menus"
-    return "judge"
+# fan-out function: after find_restaurants completes and we have the full restaurant list,
+# spawn one independent fetch_and_optimize execution per restaurant using Send().
+# each Send passes its own current_restaurant_index so branches don't interfere with
+# each other. LangGraph fires all of them simultaneously instead of looping one at a time.
+def fan_out_restaurants(state: State):
+    return [
+        Send("fetch_and_optimize", {
+            **state,
+            "current_restaurant_index": i
+        })
+        for i in range(len(state.get("restaurant_list") or []))
+    ]
 
 # conditional edge to change workflow based on user input
 graph_builder.add_conditional_edges(
     START,
     route_user_input
 )
-graph_builder.add_conditional_edges(
-    "optimizer",
-    route_after_optimizer
-)
-# The API Path
-graph_builder.add_edge("find_restaurants", "get_menus")
-graph_builder.add_edge("get_menus", "optimizer")
 
-# The Vision Path
+# The API Path — fan out all restaurants in parallel instead of looping sequentially.
+# each branch runs fetch_and_optimize independently and writes only to best_orders.
+graph_builder.add_conditional_edges("find_restaurants", fan_out_restaurants)
+
+# all parallel fetch_and_optimize branches write into best_orders via the add reducer,
+# then LangGraph waits for every branch to finish before moving on to judge.
+graph_builder.add_edge("fetch_and_optimize", "judge")
+
+# The Vision Path — still sequential since there's only one menu to process
 graph_builder.add_edge("image_translation", "optimizer")
+graph_builder.add_edge("optimizer", "judge")
 
 graph_builder.add_edge("judge", END)
 

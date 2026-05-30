@@ -30,6 +30,34 @@ def get_fatsecret_token():
     response.raise_for_status()
     return response.json().get("access_token")
 
+# this function is for when fatsecret doesn't have the restaurant info
+# we use Gemini to estimate the menu.
+def estimate_menu_via_ai(restaurant_name: str) -> str:
+    prompt = f"""
+    You are a nutrition database. For the restaurant "{restaurant_name}", 
+    list 15-20 common menu items with estimated macros.
+    
+    Only include items if you have reasonable confidence in the macros.
+    Return ONLY a JSON array:
+    [{{
+        "name": "Item Name",
+        "calories": int,
+        "protein": int,
+        "carbs": int,
+        "fats": int,
+        "price": float,
+        "restaurant": "{restaurant_name}",
+        "estimated": true
+    }}]
+    If you don't know this restaurant well enough, return [].
+    """
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        config=GenerateContentConfig(response_mime_type="application/json"),
+        contents=prompt,
+    )
+    return response.text
+
 # this tool takes in the restaurant name and the number of items we search and then returns a menu that
 # holds all the information of the items on that restaurants menu
 @mcp.tool()
@@ -54,7 +82,7 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     ]
     name_lower = restaurant_name.lower()
     if not any(chain in name_lower for chain in KNOWN_CHAINS):
-        return "[]"
+        return estimate_menu_via_ai(restaurant_name)
 
     # search FatSecret
     search_url = "https://platform.fatsecret.com/rest/server.api"
