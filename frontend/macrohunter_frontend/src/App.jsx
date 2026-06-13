@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // ─── All styles ───────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ const styles = `
     --danger: #ef4444;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
   }
   
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -127,7 +128,137 @@ const styles = `
   .skeleton-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; animation: skeletonPulse 1.5s ease-in-out infinite; }
   @keyframes skeletonPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
   .skel-line { background: var(--surface2); border-radius: 4px; margin-bottom: 10px; }
-  
+
+  /* ── Lightbox ──────────────────────────────────────────────────────────── */
+  .lb-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    animation: lbFadeIn 0.2s ease;
+    overflow-y: auto;
+  }
+  @keyframes lbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .lb-card {
+    background: var(--surface);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px var(--border);
+    width: fit-content;
+    min-width: 480px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    animation: lbSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+  @keyframes lbSlideUp { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  .lb-close {
+    position: absolute; top: 16px; right: 16px; z-index: 10;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,0,0,0.35); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: white; transition: background 0.15s;
+  }
+  .lb-close:hover { background: rgba(0,0,0,0.55); }
+
+  .lb-image-wrap {
+    width: 100%; height: 220px; background: var(--surface2);
+    position: relative; overflow: hidden;
+  }
+  .lb-image-wrap img {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  .lb-image-placeholder {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; color: var(--muted);
+    background: linear-gradient(135deg, var(--surface2) 0%, #e8f0fe 100%);
+  }
+  .lb-image-placeholder svg { opacity: 0.4; }
+  .lb-image-placeholder span { font-size: 13px; font-weight: 500; opacity: 0.6; }
+
+  .lb-top-badge {
+    position: absolute; top: 16px; left: 16px;
+    background: var(--accent); color: white;
+    font-weight: 600; font-size: 11px; padding: 5px 12px;
+    border-radius: 99px; box-shadow: var(--shadow-sm);
+  }
+
+  .lb-body { padding: 24px 24px 20px; }
+
+  .lb-restaurant {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .lb-title {
+    font-weight: 700; font-size: 20px; color: var(--text);
+    line-height: 1.3; margin-bottom: 4px;
+  }
+
+  .lb-status-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted); margin-bottom: 20px;
+  }
+
+  .lb-cal-row {
+    display: flex; align-items: baseline; gap: 6px; margin-bottom: 20px;
+  }
+  .lb-cal-num { font-weight: 800; font-size: 40px; letter-spacing: -1.5px; color: var(--text); line-height: 1; }
+  .lb-cal-unit { font-weight: 500; font-size: 14px; color: var(--muted); }
+
+  .lb-macros {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; margin-bottom: 20px;
+  }
+  .lb-macro {
+    background: var(--surface2); border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .lb-macro-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .lb-macro-val { font-weight: 700; font-size: 18px; }
+  .lb-macro-val.p { color: var(--protein); }
+  .lb-macro-val.c { color: var(--carbs); }
+  .lb-macro-val.f { color: var(--fats); }
+
+  .lb-divider { height: 1px; background: var(--border); margin-bottom: 20px; }
+
+  .lb-price-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .lb-price-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .lb-price-val { font-weight: 700; font-size: 22px; color: var(--text); letter-spacing: -0.5px; }
+
+  .lb-actions { display: flex; gap: 10px; }
+
+  .lb-directions-btn {
+    flex: 1; padding: 14px 20px;
+    background: var(--accent); color: white; border: none;
+    border-radius: 12px; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s; box-shadow: var(--shadow-sm);
+  }
+  .lb-directions-btn:hover { background: var(--accent-hover); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .lb-directions-btn:active { transform: translateY(0); }
+
+  .lb-score-chip {
+    padding: 14px 18px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--surface2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-width: 80px;
+  }
+  .lb-score-num { font-weight: 800; font-size: 18px; color: var(--text); line-height: 1; }
+  .lb-score-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+
   @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 24px; } header { padding: 20px 24px 0; } .hero-text { font-size: 32px; } }
 `;
 
@@ -160,6 +291,131 @@ function SkeletonCard() {
         {[60, 60, 60].map((w, i) => (
           <div key={i} className="skel-line" style={{ height: 36, width: w }} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Lightbox ─────────────────────────────────────────────────────────────────
+function ResultLightbox({ result, onClose }) {
+  const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
+  const { cal, p, c, f } = achieved_macros;
+
+  const restaurantName = typeof restaurant === "string"
+    ? restaurant
+    : restaurant?.name ?? "Unknown";
+  const address = typeof restaurant === "object" ? restaurant?.address : null;
+  const photoUrl = typeof restaurant === "object" ? restaurant?.photo_url : null;
+
+  const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
+  const score = Math.max(0, Math.round(100 - totalGap));
+  const topPick = status === "Optimal";
+
+  const dishSummary = order
+    .filter(o => o.quantity > 0)
+    .map(o => `${o.quantity}× ${o.item}`)
+    .join(", ");
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Build Google Maps directions URL
+  const directionsUrl = address
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurantName + " " + address)}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurantName)}`;
+
+  return (
+    <div className="lb-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="lb-card">
+        {/* Close */}
+        <button className="lb-close" onClick={onClose} aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M1 1l12 12M13 1L1 13" />
+          </svg>
+        </button>
+
+        {/* Image */}
+        <div className="lb-image-wrap">
+          {photoUrl ? (
+            <img src={photoUrl} alt={restaurantName} />
+          ) : (
+            <div className="lb-image-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <span>No photo available</span>
+            </div>
+          )}
+          {topPick && <div className="lb-top-badge">⚡ Top Pick</div>}
+        </div>
+
+        {/* Body */}
+        <div className="lb-body">
+          <div className="lb-restaurant">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            {restaurantName}
+          </div>
+
+          <div className="lb-title">{dishSummary || "Custom Order"}</div>
+          <div className="lb-status-row">
+            <span>{status}</span>
+            {address && <><span>·</span><span style={{ fontSize: 12 }}>{address}</span></>}
+          </div>
+
+          <div className="lb-cal-row">
+            <span className="lb-cal-num">{cal}</span>
+            <span className="lb-cal-unit">kcal</span>
+          </div>
+
+          <div className="lb-macros">
+            <div className="lb-macro">
+              <span className="lb-macro-label">Protein</span>
+              <span className="lb-macro-val p">{p}g</span>
+            </div>
+            <div className="lb-macro">
+              <span className="lb-macro-label">Carbs</span>
+              <span className="lb-macro-val c">{c}g</span>
+            </div>
+            <div className="lb-macro">
+              <span className="lb-macro-label">Fats</span>
+              <span className="lb-macro-val f">{f}g</span>
+            </div>
+          </div>
+
+          <div className="lb-divider" />
+
+          <div className="lb-price-row">
+            <span className="lb-price-label">Estimated total</span>
+            <span className="lb-price-val">${total_cost}</span>
+          </div>
+
+          <div className="lb-actions">
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="lb-directions-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5" fill="white" stroke="white"/>
+              </svg>
+              Get Directions
+            </a>
+            <div className="lb-score-chip">
+              <span className="lb-score-num">{score}%</span>
+              <span className="lb-score-label">Match</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -244,12 +500,12 @@ function LocationCard({ locState, location }) {
 }
 
 // ─── ResultCard ───────────────────────────────────────────────────────────────
-function ResultCard({ result, index }) {
+function ResultCard({ result, index, onClick }) {
   const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
   const { cal, p, c, f } = achieved_macros;
-  const restaurantName = typeof restaurant === "string" 
-  ? restaurant 
-  : restaurant?.name ?? "Unknown";
+  const restaurantName = typeof restaurant === "string"
+    ? restaurant
+    : restaurant?.name ?? "Unknown";
 
   const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
   const score = Math.max(0, Math.round(100 - totalGap));
@@ -261,7 +517,11 @@ function ResultCard({ result, index }) {
     .join(", ");
 
   return (
-    <div className={`result-card ${topPick ? "top-pick" : ""}`} style={{ animationDelay: `${index * 0.07}s` }}>
+    <div
+      className={`result-card ${topPick ? "top-pick" : ""}`}
+      style={{ animationDelay: `${index * 0.07}s` }}
+      onClick={() => onClick(result)}
+    >
       {topPick && <div className="top-badge">⚡ Top Pick</div>}
       <div>
         <div className="result-name">{dishSummary || "Custom Order"}</div>
@@ -287,7 +547,7 @@ function ResultCard({ result, index }) {
 }
 
 // ─── ResultsPanel ─────────────────────────────────────────────────────────────
-function ResultsPanel({ loading, results }) {
+function ResultsPanel({ loading, results, onCardClick }) {
   return (
     <div className="panel-right">
       <div className="results-header">
@@ -301,7 +561,9 @@ function ResultsPanel({ loading, results }) {
       )}
       {!loading && results && (
         <div className="results-list" style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
-          {results.map((r, i) => <ResultCard key={i} result={r} index={i} />)}
+          {results.map((r, i) => (
+            <ResultCard key={i} result={r} index={i} onClick={onCardClick} />
+          ))}
         </div>
       )}
       {!loading && !results && (
@@ -325,6 +587,7 @@ function HunterPage() {
   const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
   const [loading,  setLoading]  = useState(false);
   const [results,  setResults]  = useState(null);
+  const [selected, setSelected] = useState(null);
 
   const isFormReady = calories && protein && carbs && fats;
 
@@ -342,7 +605,7 @@ function HunterPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await res.json();
-      setResults(data.results); 
+      setResults(data.results);
     } catch (err) {
       console.error("Search failed:", err);
       setResults(null);
@@ -381,26 +644,32 @@ function HunterPage() {
   };
 
   return (
-    <main>
-      <div className="panel-left">
-        <div>
-          <div className="section-label">Your Daily Target</div>
-          <div className="hero-text">Hunt Your<br /><span>Macros</span></div>
-          <div className="hero-sub" style={{ marginTop: 10 }}>
-            Enter your nutrition goals and we'll find the best meals near you.
+    <>
+      <main>
+        <div className="panel-left">
+          <div>
+            <div className="section-label">Your Daily Target</div>
+            <div className="hero-text">Hunt Your<br /><span>Macros</span></div>
+            <div className="hero-sub" style={{ marginTop: 10 }}>
+              Enter your nutrition goals and we'll find the best meals near you.
+            </div>
           </div>
+          <CaloriesCard calories={calories} setCalories={setCalories} />
+          <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
+          <LocationCard locState={locState} location={location} />
+          <button className={`search-btn ${loading ? "loading" : ""}`} onClick={handleSearch} disabled={loading || !isFormReady}>
+            {loading ? <><span className="spin">◈</span> &nbsp;Scanning Area…</>
+              : locState === "acquiring" ? <><span className="spin">◈</span> &nbsp;Awaiting Permission…</>
+              : <><div className="btn-shimmer" />⌖ &nbsp;Hunt Meals Nearby</>}
+          </button>
         </div>
-        <CaloriesCard calories={calories} setCalories={setCalories} />
-        <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
-        <LocationCard locState={locState} location={location} />
-        <button className={`search-btn ${loading ? "loading" : ""}`} onClick={handleSearch} disabled={loading || !isFormReady}>
-          {loading ? <><span className="spin">◈</span> &nbsp;Scanning Area…</>
-            : locState === "acquiring" ? <><span className="spin">◈</span> &nbsp;Awaiting Permission…</>
-            : <><div className="btn-shimmer" />⌖ &nbsp;Hunt Meals Nearby</>}
-        </button>
-      </div>
-      <ResultsPanel loading={loading} results={results} />
-    </main>
+        <ResultsPanel loading={loading} results={results} onCardClick={setSelected} />
+      </main>
+
+      {selected && (
+        <ResultLightbox result={selected} onClose={() => setSelected(null)} />
+      )}
+    </>
   );
 }
 
