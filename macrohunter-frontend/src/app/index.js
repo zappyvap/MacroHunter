@@ -134,11 +134,11 @@ function ResultLightbox({ result, onClose }) {
 
         {/* Body */}
         <View className="lb-body">
-          <View className="lb-restaurant">
-            <Text>{restaurantName}</Text>
+          <View>
+            <Text className="lb-restaurant">{restaurantName}</Text>
           </View>
 
-          <View className="lb-title"><Text>{dishSummary || "Custom Order"}</Text></View>
+          <View><Text className="lb-title">{dishSummary || "Custom Order"}</Text></View>
           <View className="lb-status-row">
             <Text>{status}</Text>
             {address && <><Text>·</Text><Text style={{ fontSize: 12 }}>{address}</Text></>}
@@ -190,7 +190,7 @@ function CaloriesCard({ calories, setCalories }) {
   const pct = calories ? Math.min((+calories / 3000) * 100, 100) : 0;
   return (
     <View className="calories-card">
-      <View className="section-label"><Text>Daily Calories</Text></View>
+      <View><Text className="section-label">Daily Calories</Text></View>
       <View className="cal-display">
         <TextInput className="cal-input" type="number" placeholder="2000"
           value={calories} onChange={e => setCalories(e.target.value)} min={0} max={9999} />
@@ -216,7 +216,7 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
   const total   = (+protein || 0) + (+carbs || 0) + (+fats || 0);
   return (
     <View className="macros-card">
-      <View className="section-label"><Text>Macro Targets</Text></View>
+      <View><Text className="section-label">Macro Targets</Text></View>
       <View className="macros-grid">
         {MACRO_FIELDS.map(({ label, color, cls, key }) => (
           <View key={cls} className="macro-field">
@@ -249,9 +249,9 @@ function LocationCard({ locState, location }) {
       <View className={`loc-icon ${locState === "denied" ? "denied" : ""}`}>
       </View>
       <View className="loc-text">
-        <View className="loc-name"><Text>{location.name}</Text></View>
-        <View className="loc-coords">
-          <Text>{location.coords ?? (locState === "acquiring" ? "Waiting for browser prompt…" : "Will prompt when you search")}</Text>
+        <View><Text className="loc-name">{location.name}</Text></View>
+        <View>
+          <Text className="loc-coords">{location.coords ?? (locState === "acquiring" ? "Waiting for browser prompt…" : "Will prompt when you search")}</Text>
         </View>
       </View>
     </View>
@@ -283,7 +283,7 @@ function ResultCard({ result, index, onClick }) {
     >
       {topPick && <View className="top-badge"><Text>⚡ Top Pick</Text></View>}
       <View>
-        <View className="result-name"><Text>{dishSummary || "Custom Order"}</Text></View>
+        <View><Text className="result-name">{dishSummary || "Custom Order"}</Text></View>
         <View className="result-meta">
           <Text>{restaurantName}</Text>
           <Text className="result-meta-sep">·</Text>
@@ -298,7 +298,7 @@ function ResultCard({ result, index, onClick }) {
         </View>
       </View>
       <View className="result-right">
-        <View><View className="result-cal"><Text>{cal}</Text></View><View className="result-cal-unit"><Text>kcal</Text></View></View>
+        <View><View><Text className="result-cal">{cal}</Text></View><View><Text className="result-cal-unit">kcal</Text></View></View>
         <ScoreTag score={score} />
       </View>
     </View>
@@ -310,10 +310,10 @@ function ResultTextel({ loading, results, onCardClick }) {
   return (
     <View className="panel-right">
       <View className="results-header">
-        <View className="results-title">
-          <Text>{results ? "Nearby Matches" : loading ? "Optimizing..." : "Results"}</Text>
+        <View>
+          <Text className="results-title">{results ? "Nearby Matches" : loading ? "Optimizing..." : "Results"}</Text>
         </View>
-        {results && <View className="results-count"><Text>{results.length} locations found</Text></View>}
+        {results && <View><Text className="results-count">{results.length} locations found</Text></View>}
       </View>
       {loading && (
         <View className="results-list">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
@@ -328,8 +328,8 @@ function ResultTextel({ loading, results, onCardClick }) {
       {!loading && !results && (
         <View className="empty-state">
           <View className="empty-icon"><Text>⌖</Text></View>
-          <View className="empty-text"><Text>No Hunt Started</Text></View>
-          <View className="empty-sub"><Text>Set your macro targets and calories on the left, then hit the search button to find meals near you.</Text></View>
+          <View><Text className="empty-text">No Hunt Started</Text></View>
+          <View><Text className="empty-sub">Set your macro targets and calories on the left, then hit the search button to find meals near you.</Text></View>
         </View>
       )}
     </View>
@@ -405,16 +405,14 @@ function HunterPage() {
 
   return (
     <>
-      <SafeAreaView className="app-header">
+      <SafeAreaView className="app-header" flex ="1" flexDirection="column" justifyContent="flex-end" alignItems="center">
         <View className="panel-left">
-          <View>
-            <View className="section-label"><Text>Your Daily Target</Text></View>
-            <View className="hero-text">
-              <Text>Hunt Your</Text>
-              <Text>Macros</Text>
+          <View>s
+            <View justifyContent="center" alignItems="center" gap={2}>
+              <Text className="hero-text">Hunt Your Macros</Text>
             </View>
-            <View className="hero-sub" style={{ marginTop: 10 }}>
-              <Text>Enter your nutrition goals and we'll find the best meals near you.</Text>
+            <View style={{ marginTop: 10 }}>
+              <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
             </View>
           </View>
           <CaloriesCard calories={calories} setCalories={setCalories} />
@@ -439,7 +437,7 @@ function HunterPage() {
             )}
           </TouchableOpacity>
         </View>
-        <ResultTextel loading={loading} results={results} onCardClick={setSelected} />
+        {/*//DID HAVE RESULTS CARD HERE USE RESULTSTEXTEL INSTEAD LATER*/}
       </SafeAreaView>
 
       {selected && (
@@ -461,8 +459,8 @@ function AppLayout({ locState, children }) {
           <View className="logo-mark">
           </View>
           <View>
-            <View className="logo-text"><Text>MacroHunter</Text></View>
-            <View className="logo-sub"><Text>Find your perfect meal</Text></View>
+            <View><Text className="logo-text">MacroHunter</Text></View>
+            <View><Text className="logo-sub">Find your perfect meal</Text></View>
           </View>
           <View className="header-right">
             <View className={`status-dot ${locState === "denied" ? "denied" : ""}`} />
