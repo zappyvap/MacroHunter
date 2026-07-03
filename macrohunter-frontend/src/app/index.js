@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { useState, useEffect } from "react";
 import { Link } from 'expo-router';
+import * as Location from 'expo-location';
+import { useSearch } from '../context/SearchContext';
+import {router, useLocalSearchParams} from "expo-router";
 
 function getStyleFromClassName(className) {
   if (!className) return undefined;
@@ -193,7 +196,7 @@ function CaloriesCard({ calories, setCalories }) {
       <View><Text className="section-label">Daily Calories</Text></View>
       <View className="cal-display">
         <TextInput className="cal-input" type="number" placeholder="2000"
-          value={calories} onChange={e => setCalories(e.target.value)} min={0} max={9999} />
+          value={calories} onChangeText={setCalories} min={0} max={9999} />
         <Text className="cal-unit">kcal</Text>
       </View>
       <View className="cal-bar">
@@ -226,7 +229,7 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
             </View>
             <View className={`macro-input-wrap ${cls}`}>
               <TextInput className="macro-num" type="number" placeholder="0"
-                value={vals[key]} onChange={e => setters[key](e.target.value)} min={0} />
+                value={vals[key]} onChangeText={value => setters[key](value)} min={0} />
               <Text className="macro-g">g</Text>
             </View>
           </View>
@@ -235,7 +238,7 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
       {total > 0 && (
         <View className="macro-bars">
           <MacroBar label="PRO" value={+protein || 0} max={total} color="var(--protein)" />
-          <MacroBar label="CHO" value={+carbs   || 0} max={total} color="var(--carbs)"   />
+          <MacroBar label="CRB" value={+carbs   || 0} max={total} color="var(--carbs)"   />
           <MacroBar label="FAT" value={+fats    || 0} max={total} color="var(--fats)"    />
         </View>
       )}
@@ -258,83 +261,7 @@ function LocationCard({ locState, location }) {
   );
 }
 
-// ─── ResultCard ───────────────────────────────────────────────────────────────
-function ResultCard({ result, index, onClick }) {
-  const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
-  const { cal, p, c, f } = achieved_macros;
-  const restaurantName = typeof restaurant === "string"
-    ? restaurant
-    : restaurant?.name ?? "Unknown";
 
-  const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
-  const score = Math.max(0, Math.round(100 - totalGap));
-  const topPick = status === "Optimal";
-
-  const dishSummary = order
-    .filter(o => o.quantity > 0)
-    .map(o => `${o.quantity}x ${o.item}`)
-    .join(", ");
-
-  return (
-    <View
-      className={`result-card ${topPick ? "top-pick" : ""}`}
-      style={{ animationDelay: `${index * 0.07}s` }}
-      onClick={() => onClick(result)}
-    >
-      {topPick && <View className="top-badge"><Text>⚡ Top Pick</Text></View>}
-      <View>
-        <View><Text className="result-name">{dishSummary || "Custom Order"}</Text></View>
-        <View className="result-meta">
-          <Text>{restaurantName}</Text>
-          <Text className="result-meta-sep">·</Text>
-          <Text>{status}</Text>
-          <Text className="result-meta-sep">·</Text>
-          <Text>💰 ${total_cost}</Text>
-        </View>
-        <View className="result-macros">
-          <View className="rmacro"><Text className="rmacro-label">Protein</Text><Text className="rmacro-val p">{p}g</Text></View>
-          <View className="rmacro"><Text className="rmacro-label">Carbs</Text><Text className="rmacro-val c">{c}g</Text></View>
-          <View className="rmacro"><Text className="rmacro-label">Fats</Text><Text className="rmacro-val f">{f}g</Text></View>
-        </View>
-      </View>
-      <View className="result-right">
-        <View><View><Text className="result-cal">{cal}</Text></View><View><Text className="result-cal-unit">kcal</Text></View></View>
-        <ScoreTag score={score} />
-      </View>
-    </View>
-  );
-}
-
-// ─── ResultTextel ─────────────────────────────────────────────────────────────
-function ResultTextel({ loading, results, onCardClick }) {
-  return (
-    <View className="panel-right">
-      <View className="results-header">
-        <View>
-          <Text className="results-title">{results ? "Nearby Matches" : loading ? "Optimizing..." : "Results"}</Text>
-        </View>
-        {results && <View><Text className="results-count">{results.length} locations found</Text></View>}
-      </View>
-      {loading && (
-        <View className="results-list">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
-      )}
-      {!loading && results && (
-        <View className="results-list" style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
-          {results.map((r, i) => (
-            <ResultCard key={i} result={r} index={i} onClick={onCardClick} />
-          ))}
-        </View>
-      )}
-      {!loading && !results && (
-        <View className="empty-state">
-          <View className="empty-icon"><Text>⌖</Text></View>
-          <View><Text className="empty-text">No Hunt Started</Text></View>
-          <View><Text className="empty-sub">Set your macro targets and calories on the left, then hit the search button to find meals near you.</Text></View>
-        </View>
-      )}
-    </View>
-  );
-}
 // ─── HunterPage ───────────────────────────────────────────────────────────────
 function HunterPage() {
   const [calories, setCalories] = useState("");
@@ -344,7 +271,7 @@ function HunterPage() {
   const [locState, setLocState] = useState("idle");
   const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
   const [loading,  setLoading]  = useState(false);
-  const [results,  setResults]  = useState(null);
+  const {results,  setResults} = useSearch();
   const [selected, setSelected] = useState(null);
 
   const isFormReady = calories && protein && carbs && fats;
@@ -360,11 +287,12 @@ function HunterPage() {
     };
     try {
       {/*NEED TO CHANGE*/}
-      const res  = await fetch("http://127.0.0.1:8000/api/optimize-meal", {
+      const res  = await fetch("http://10.0.0.233:8000/api/optimize-meal", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await res.json();
       setResults(data.results);
+      router.push('/results')
     } catch (err) {
       console.error("Search failed:", err);
       setResults(null);
@@ -373,29 +301,32 @@ function HunterPage() {
     }
   };
 
-  const requestLocationThenSearch = () => {
-    if (!navigator.geolocation) {
-      setLocation({ name: "Geolocation not supported", coords: "Use a modern browser", lat: null, lng: null });
+  const requestLocationThenSearch = async () => {
+    setLocState("acquiring");
+    setLocation({ name: "Requesting location…", coords: "Waiting for permission" });
+
+    let { status } = await Location.requestForegroundPermissionsAsync();
+
+    if (status !== 'granted') {
       setLocState("denied");
+      setLocation({
+        name: "Location Denied",
+        coords: "Please enable location permissions in your browser settings",
+      });
       return;
     }
-    setLocState("acquiring");
-    setLocation(prev => ({ ...prev, name: "Requesting location…", coords: "Waiting for permission" }));
-    {/*NEED TO CHANGE*/}
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        setLocState("ready");
-        setLocation({ name: "Current Location", coords: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
-        runSearch(lat, lng);
-      },
-      err => {
-        console.warn("Geolocation denied:", err.message);
-        setLocState("denied");
-        setLocation({ name: "Location Denied", coords: "Enable GPS in browser settings", lat: null, lng: null });
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+
+    const currentLocation = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = currentLocation.coords;
+
+    setLocState("ready");
+    setLocation({
+      name: "Ready",
+      coords: `(${latitude}, ${longitude})`,
+      lat: latitude,
+      lng: longitude,
+    });
+    await runSearch(latitude, longitude);
   };
   // NEED TO CHANGE
   const handleSearch = () => {
@@ -407,7 +338,7 @@ function HunterPage() {
     <>
       <SafeAreaView className="app-header" flex ="1" flexDirection="column" justifyContent="flex-end" alignItems="center">
         <View className="panel-left">
-          <View>s
+          <View>
             <View justifyContent="center" alignItems="center" gap={2}>
               <Text className="hero-text">Hunt Your Macros</Text>
             </View>
@@ -646,6 +577,7 @@ const styles = StyleSheet.create({
   },
   'mbar-fill': {
     height: '100%',
+    backgroundColor: '#10b981',
     borderRadius: 3,
   },
   'mbar-val': {
