@@ -1,0 +1,23 @@
+# Web Framework & Server
+fastapi
+uvicorn
+
+# AI Orchestration
+langchain
+langchain-anthropic
+langgraph
+langchain-core 
+langchain-google-genai
+
+# Model Context Protocol (MCP)
+mcp
+
+# Math & Optimization Engine
+pulp
+
+# Data Fetching & Security
+python-dotenv
+
+google-genai
+pillow
+httpx
