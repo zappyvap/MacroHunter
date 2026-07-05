@@ -12,6 +12,7 @@ export function SearchProvider({ children }) {
   );
 }
 
+
 export function useSearch() {
   const context = useContext(SearchContext);
   if (!context) {
