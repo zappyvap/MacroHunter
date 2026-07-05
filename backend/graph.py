@@ -78,6 +78,9 @@ def fetch_and_optimize(state: State):
 
     # get the menu items for this specific restaurant
     result = chain_reader(current["name"])
+    print("=" * 40)
+    print("RAW RESULT:", repr(result))
+    print("=" * 40)
     menu_items = json.loads(result) if isinstance(result, str) else result
 
     if not menu_items:
