@@ -2,6 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache bash
 COPY package*.json ./
 RUN npm install
 
@@ -12,5 +13,7 @@ EXPOSE 8081
 EXPOSE 19000
 EXPOSE 19001
 
+ENV BROWSER=none
+
 # Start the bundler with flags allowing external connections
-CMD ["npx", "expo", "start", "--host", "lan"]
+CMD ["npx", "expo", "start", "--host", "lan","--go"]

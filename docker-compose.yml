@@ -23,8 +23,26 @@ services:
       - "8001:8001"
     command: uvicorn image_scraper:app --host 0.0.0.0 --port 8001 --reload
     volumes:
-      - ./backend:/app
+      - ./mcp_servers:/app
     env_file:
       - .env
+
+  expo-app:
+    build:
+      context: ./macrohunter-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    tty: true
+    stdin_open: true
+    environment:
+      # CRITICAL: Replace with your actual local machine's IP address (e.g., 192.168.1.5)
+      - REACT_NATIVE_PACKAGER_HOSTNAME=10.0.0.233
+      # Enables polling so file changes on the host sync inside the container for Fast Refresh
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./macrohunter-frontend:/app
+      - /app/node_modules
 
     
