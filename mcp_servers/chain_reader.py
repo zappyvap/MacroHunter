@@ -2,22 +2,77 @@ import os
 import requests
 import json
 import dotenv
+from datetime import datetime, timezone, timedelta
 from mcp.server.fastmcp import FastMCP
 from google import genai
 from google.genai.types import GenerateContentConfig
+from mcp_servers.supabase_client import supabase
 
 dotenv.load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 mcp = FastMCP("Chain Restaurant Menu Search Tool")
+
+# ─── Supabase menu cache ──────────────────────────────────────────────────
+# Fetching a restaurant's menu is the slow part of a search: it's either a
+# FatSecret API call + a Gemini price-estimation call, or a full Gemini
+# menu-estimation call. The same restaurants come up over and over for
+# people searching nearby, so we cache the finished menu in Supabase and
+# skip straight past FatSecret/Gemini on repeat lookups.
+
+CACHE_TABLE = "menu_cache"
+CACHE_MAX_AGE_DAYS = 30  # after this long we re-fetch, in case prices/menus changed
+
+def _cache_key(restaurant_name: str) -> str:
+    """Normalize the name so 'Applebee's' and 'applebee's' hit the same row."""
+    return restaurant_name.strip().lower()
+
+def _get_cached_menu(restaurant_name: str):
+    """Returns the cached menu (a list) if we have a fresh one, otherwise None."""
+    try:
+        key = _cache_key(restaurant_name)
+        result = supabase.table(CACHE_TABLE).select("*").eq("restaurant_name", key).execute()
+
+        if not result.data:
+            return None
+
+        row = result.data[0]
+        cached_at = datetime.fromisoformat(row["cached_at"])
+        age = datetime.now(timezone.utc) - cached_at
+
+        if age > timedelta(days=CACHE_MAX_AGE_DAYS):
+            return None  # stale, treat like a cache miss so it gets refreshed
+
+        return row["menu"]
+    except Exception as e:
+        # Cache problems should never take down a search — just fall back
+        # to fetching live, same as if nothing was cached.
+        print(f"Cache read failed for '{restaurant_name}': {e}")
+        return None
+
+def _save_menu_to_cache(restaurant_name: str, menu_json: str):
+    """Parses the menu JSON string and upserts it into the cache table."""
+    try:
+        menu = json.loads(menu_json)
+        if not menu:  # don't bother caching empty/failed results
+            return
+        key = _cache_key(restaurant_name)
+        supabase.table(CACHE_TABLE).upsert({
+            "restaurant_name": key,
+            "menu": menu,
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        print(f"Cache write failed for '{restaurant_name}': {e}")
+
 
 # this function is just because FatSecret needs a OAuth 2.0 token to use their API
 def get_fatsecret_token():
     """Exchanges your Client ID and Secret for a temporary OAuth 2.0 Access Token."""
     client_id = os.getenv("FATSECRET_CLIENT_ID")
     client_secret = os.getenv("FATSECRET_CLIENT_SECRET")
-    
+
     token_url = "https://oauth.fatsecret.com/connect/token"
-    
+
     # We use Basic Auth to securely pass the ID and Secret
     response = requests.post(
         token_url,
@@ -64,11 +119,13 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
 def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     """
     Searches FatSecret's database for chain restaurant items and fetches macros.
+    Checks the Supabase cache first — if this restaurant was looked up recently,
+    we skip FatSecret/Gemini entirely and return the cached menu right away.
     """
-    try:
-        access_token = get_fatsecret_token()
-    except Exception as e:
-        return f"Error authenticating with FatSecret: {e}"
+    cached_menu = _get_cached_menu(restaurant_name)
+    if cached_menu is not None:
+        print(f"⚡ Cache hit for '{restaurant_name}' — skipping live fetch")
+        return json.dumps(cached_menu)
 
     # only search for restaurants that FatSecret actually has data for
     KNOWN_CHAINS = [
@@ -82,16 +139,23 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     ]
     name_lower = restaurant_name.lower()
     if not any(chain in name_lower for chain in KNOWN_CHAINS):
-        return estimate_menu_via_ai(restaurant_name)
+        ai_menu_json = estimate_menu_via_ai(restaurant_name)
+        _save_menu_to_cache(restaurant_name, ai_menu_json)
+        return ai_menu_json
 
     # search FatSecret
     search_url = "https://platform.fatsecret.com/rest/server.api"
-    
+
+    try:
+        access_token = get_fatsecret_token()
+    except Exception as e:
+        return f"Error authenticating with FatSecret: {e}"
+
     # uses the token to access it
     headers = {
         "Authorization": f"Bearer {access_token}"
     }
-    
+
     # needed to use more specific search parameters to get the 
     # correct menu items
     params = {
@@ -136,7 +200,7 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
         # FatSecret returns macros as a single string description we need to parse
         # Example: "Per 100g - Calories: 250kcal | Fat: 10.00g | Carbs: 30.00g | Protein: 15.00g"
         desc = item.get("food_description", "")
-        
+
         # Simple extraction logic to pull out the raw numbers
         macros = {"Calories": 0, "Protein": 0, "Carbs": 0, "Fat": 0}
         parts = desc.replace("kcal", "").replace("g", "").split("|")
@@ -185,7 +249,7 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
             price = float(estimated_prices.get(food["name"], 10.0))
         except (ValueError, TypeError):
             price = 10.0
-            
+
         normalized_menu.append({
             "name": food["name"],
             "calories": food["calories"],
@@ -193,10 +257,13 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
             "carbs": food["carbs"],
             "fats": food["fats"],
             "price": price,
-            "restaurant": restaurant_name
+            "restaurant": restaurant_name,
+            "estimated" : False
         })
 
-    return json.dumps(normalized_menu)
+    final_menu_json = json.dumps(normalized_menu)
+    _save_menu_to_cache(restaurant_name, final_menu_json)
+    return final_menu_json
 
 if __name__ == "__main__":
     mcp.run()

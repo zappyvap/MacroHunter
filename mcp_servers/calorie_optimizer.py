@@ -75,7 +75,7 @@ def optimizer(
     for item in menu_items:
         qty = item_vars[item["name"]].varValue
         if qty and qty > 0:
-            final_order.append({"item": item["name"], "quantity": int(qty)})
+            final_order.append({"item": item["name"], "quantity": int(qty), "estimated" : item["estimated"]})
 
     # Calculate what we actually achieved
     actual_p = sum(i["protein"] * (item_vars[i["name"]].varValue or 0) for i in menu_items)
