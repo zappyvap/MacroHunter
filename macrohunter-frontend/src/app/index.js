@@ -1,12 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, TextInput, TouchableOpacity, Image, SafeAreaView } from '../constants/component-style';
 import { useState, useEffect } from "react";
+import { Alert } from 'react-native';
 import { Link } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSearch } from '../context/SearchContext';
 import {router, useLocalSearchParams} from "expo-router";
 import styles from '../constants/styles';
-
+import * as ImagePicker from 'expo-image-picker';
 
 
 export default function App() {
@@ -16,6 +17,26 @@ export default function App() {
       <HunterPage />
     </>
   );
+}
+async function takePicture(setImageUri) {
+  const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+
+  if (permissionResult.granted === false) {
+    Alert.alert('Permission Denied', 'You need to allow camera access to use this feature.');
+    return;
+  }
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 0.8,
+  });
+
+  if (!result.canceled) {
+    const capturedUri = result.assets[0].uri;
+    setImageUri(capturedUri);
+  }
 }
 function ScoreTag({ score }) {
   const cls = score >= 90 ? "score-high" : score >= 75 ? "score-mid" : "score-low";
@@ -132,8 +153,20 @@ function HunterPage() {
   const [loading,  setLoading]  = useState(false);
   const {results,  setResults} = useSearch();
   const [selected, setSelected] = useState(null);
+  const [imageUri, setImageUri] = useState(null); 
+
+  useEffect(() => {
+    if(imageUri) {
+      router.push({
+        pathname: '/scan',
+        params: { imageUri }
+      })
+    }
+  }, [imageUri]);
 
   const isFormReady = calories && protein && carbs && fats;
+
+  const handleTakePicture = () => takePicture(setImageUri);
 
   const runSearch = async (lat, lng) => {
     setLoading(true);
@@ -145,7 +178,6 @@ function HunterPage() {
       target_carbs: +carbs, target_fats: +fats,
     };
     try {
-      {/*NEED TO CHANGE*/}
       const res  = await fetch("http://10.0.0.233:8000/api/optimize-meal", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
@@ -187,7 +219,6 @@ function HunterPage() {
     });
     await runSearch(latitude, longitude);
   };
-  // NEED TO CHANGE
   const handleSearch = () => {
     if (!isFormReady) return;
     locState === "ready" && location.lat !== null ? runSearch(location.lat, location.lng) : requestLocationThenSearch();
@@ -199,12 +230,36 @@ function HunterPage() {
         <View className="panel-left">
           <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
           </View>
-          <View>
-            <View justifyContent="center" alignItems="center" gap={2}>
-              <Text className="hero-text">Hunt Your Macros</Text>
-            </View>
-            <View style={{ marginTop: 10 }}>
-              <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
+          <View style={{ position: 'relative', width: '100%', paddingTop: 44 }}>
+            <TouchableOpacity
+              onPress={handleTakePicture}
+              activeOpacity={0.8}
+              style={{
+                position: 'absolute',
+                top: -80,
+                right: 0,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 999,
+                backgroundColor: 'rgba(20, 19, 19, 0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(102, 98, 98, 0.3)',
+                zIndex: 2,
+              }}
+            >
+              <Text style={{ color: '#000000', fontWeight: '600', fontSize: 14 }}>Scan menu</Text>
+              <Text style={{ fontSize: 16 }}>📷</Text>
+            </TouchableOpacity>
+            <View style={{ alignItems: 'center' }}>
+              <View justifyContent="center" alignItems="center" gap={2}>
+                <Text className="hero-text">Hunt Your Macros</Text>
+              </View>
+              <View style={{ marginTop: 10 }}>
+                <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
+              </View>
             </View>
           </View>
           <CaloriesCard calories={calories} setCalories={setCalories} />
