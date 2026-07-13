@@ -75,7 +75,7 @@ def optimizer(
     for item in menu_items:
         qty = item_vars[item["name"]].varValue
         if qty and qty > 0:
-            final_order.append({"item": item["name"], "quantity": int(qty), "estimated" : item["estimated"]})
+            final_order.append({"item": item["name"], "quantity": int(qty), "estimated" : item.get("estimated", True)})
 
     # Calculate what we actually achieved
     actual_p = sum(i["protein"] * (item_vars[i["name"]].varValue or 0) for i in menu_items)
@@ -89,7 +89,7 @@ def optimizer(
         "achieved_macros": {"cal" : actual_cal, "p": actual_p, "c": actual_c, "f": actual_f},
         "gaps": {"cal" : slack_cal.varValue, "p": slack_p.varValue, "c": slack_c.varValue, "f": slack_f.varValue},
         "order": final_order,
-        "restaurant": menu_items[0]["restaurant"]
+        "restaurant": menu_items[0].get("restaurant", "Uploaded Menu")
         
     }
 

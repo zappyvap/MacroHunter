@@ -28,7 +28,7 @@ async function takePicture(setImageUri) {
 
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: ['images'],
-    allowsEditing: true,
+    allowsEditing: false,
     aspect: [4, 3],
     quality: 0.8,
   });
@@ -157,6 +157,7 @@ function HunterPage() {
 
   useEffect(() => {
     if(imageUri) {
+      scanMenu(imageUri);
       router.push({
         pathname: '/scan',
         params: { imageUri }
@@ -167,7 +168,32 @@ function HunterPage() {
   const isFormReady = calories && protein && carbs && fats;
 
   const handleTakePicture = () => takePicture(setImageUri);
-
+  
+  const scanMenu = async () => {
+    // React Native's FormData understands this { uri, name, type } shape
+    // and will stream the actual image bytes from that local file URI.
+    const formData = new FormData();
+    formData.append("file", {
+      uri: imageUri,
+      name: "menu.jpg",
+      type: "image/jpeg",
+    });
+    setLoading(true);
+    setResults(null);
+    try {
+      const res  = await fetch("http://10.0.0.233:8001/translate-menu", {
+        method: "POST", body: formData,
+      });
+      const data = await res.json();
+      setResults(data);
+      router.push('/results')
+    } catch (err) {
+      console.error("Search failed:", err);
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  };
   const runSearch = async (lat, lng) => {
     setLoading(true);
     setResults(null);
