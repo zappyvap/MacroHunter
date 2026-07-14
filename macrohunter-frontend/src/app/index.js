@@ -170,22 +170,26 @@ function HunterPage() {
   const handleTakePicture = () => takePicture(setImageUri);
   
   const scanMenu = async () => {
-    // React Native's FormData understands this { uri, name, type } shape
-    // and will stream the actual image bytes from that local file URI.
     const formData = new FormData();
     formData.append("file", {
       uri: imageUri,
       name: "menu.jpg",
       type: "image/jpeg",
     });
+    formData.append("target_calories", +calories);
+    formData.append("target_protein", +protein);
+    formData.append("target_carbs", +carbs);
+    formData.append("target_fats", +fats);
+
     setLoading(true);
     setResults(null);
     try {
-      const res  = await fetch("http://10.0.0.233:8001/translate-menu", {
-        method: "POST", body: formData,
+      const res  = await fetch("http://10.0.0.233:8000/api/optimize-menu-image", {
+        method: "POST",
+        body: formData,
       });
       const data = await res.json();
-      setResults(data);
+      setResults(data.results);
       router.push('/results')
     } catch (err) {
       console.error("Search failed:", err);
@@ -257,28 +261,6 @@ function HunterPage() {
           <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
           </View>
           <View style={{ position: 'relative', width: '100%', paddingTop: 44 }}>
-            <TouchableOpacity
-              onPress={handleTakePicture}
-              activeOpacity={0.8}
-              style={{
-                position: 'absolute',
-                top: -80,
-                right: 0,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                borderRadius: 999,
-                backgroundColor: 'rgba(20, 19, 19, 0.16)',
-                borderWidth: 1,
-                borderColor: 'rgba(102, 98, 98, 0.3)',
-                zIndex: 2,
-              }}
-            >
-              <Text style={{ color: '#000000', fontWeight: '600', fontSize: 14 }}>Scan menu</Text>
-              <Text style={{ fontSize: 16 }}>📷</Text>
-            </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
               <View justifyContent="center" alignItems="center" gap={2}>
                 <Text className="hero-text">Hunt Your Macros</Text>
@@ -291,24 +273,55 @@ function HunterPage() {
           <CaloriesCard calories={calories} setCalories={setCalories} />
           <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
           <LocationCard locState={locState} location={location} />
-          <TouchableOpacity className={`search-btn ${loading ? "loading" : ""}`} onPress={handleSearch} disabled={loading || !isFormReady} activeOpacity={0.9}>
-            {loading ? (
-              <>
-                <Text className="spin">◈</Text>
-                <Text>Scanning Area…</Text>
-              </>
-            ) : locState === "acquiring" ? (
-              <>
-                <Text className="spin">◈</Text>
-                <Text>Awaiting Permission…</Text>
-              </>
-            ) : (
-              <>
-                <View className="btn-shimmer" />
-                <Text>⌖ Hunt Meals Nearby</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+            <TouchableOpacity
+              className={`search-btn ${loading ? "loading" : ""}`}
+              onPress={handleSearch}
+              disabled={loading || !isFormReady}
+              activeOpacity={0.9}
+              style={{ flex: 1.5, width: 'auto', opacity: (loading || !isFormReady) ? 0.4 : 1 }}
+            >
+              {loading ? (
+                <>
+                  <Text className="spin">◈</Text>
+                  <Text style={{ color: '#64748b' }}>Scanning Area…</Text>
+                </>
+              ) : locState === "acquiring" ? (
+                <>
+                  <Text className="spin">◈</Text>
+                  <Text style={{ color: '#64748b' }}>Awaiting Permission…</Text>
+                </>
+              ) : (
+                <>
+                  <View className="btn-shimmer" />
+                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>⌖ Hunt Meals Nearby</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleTakePicture}
+              disabled={loading || !isFormReady}
+              activeOpacity={0.8}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 16,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: 'rgba(20, 19, 19, 0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(102, 98, 98, 0.3)',
+                opacity: (loading || !isFormReady) ? 0.4 : 1,
+              }}
+            >
+              <Text style={{ color: '#0f172a', fontWeight: '600', fontSize: 14 }}>Scan Menu</Text>
+              <Text style={{ fontSize: 16 }}>📷</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {/*//DID HAVE RESULTS CARD HERE USE RESULTSTEXTEL INSTEAD LATER*/}
       </SafeAreaView>

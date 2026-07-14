@@ -7,6 +7,7 @@ import os
 import requests
 from operator import add
 import json
+import base64
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -39,7 +40,6 @@ class State(TypedDict):
     restaurant_list: list[str] | None
     current_restaurant_index: int | None  # used by Send() to tell each branch which restaurant to handle
     menu_items: list[str] | None          # only used by the vision path (single branch)
-    image_url: str | None
     searching_for_restaurant: bool
     lat: float | None
     lon: float | None
@@ -49,6 +49,7 @@ class State(TypedDict):
     target_carbs: float
     target_fats: float
     final_orders: list[str] | None
+    image_b64: str | None  # base64 representation of the uploaded file
 
 graph_builder = StateGraph(State) # makes the graph
 
@@ -110,22 +111,26 @@ def fetch_and_optimize(state: State):
 # this is when the user uploads a picture instead of searching for restaurants
 def image_translation(state: State):
     """
-    Expects state["image_url"] to be a URL pointing to a menu image.
-    Downloads the image, sends it to the image scraper service,
-    and stores the parsed menu items in state["menu_items"].
+    Expects state["image_b64"] to be a Base64-encoded image string.
+    Decodes the image and sends it to the image scraper service,
+    storing the parsed menu items in state["menu_items"].
     """
-    photo_url = state.get("image_url")
-    if not photo_url:
+    image_b64 = state.get("image_b64")
+    if not image_b64:
         return {"menu_items": []}
 
-    # Download the image
-    image_response = requests.get(photo_url)
-    image_bytes = image_response.content
+    image_bytes = base64.b64decode(image_b64)
 
-    # Send to your image scraper FastAPI server (run separately on port 8001)
-    # start it with: uvicorn mcp_servers.image_scraper:app --port 8001
+    import socket
+    host = "127.0.0.1"
+    try:
+        socket.gethostbyname("scanner")
+        host = "scanner"
+    except socket.gaierror:
+        pass
+
     response = requests.post(
-        "http://127.0.0.1:8001/translate-menu",
+        f"http://{host}:8001/translate-menu",
         files={"file": ("menu.jpg", image_bytes, "image/jpeg")}
     )
     return {"menu_items": response.json()}
@@ -134,21 +139,43 @@ def image_translation(state: State):
 # the parallel restaurant path uses fetch_and_optimize instead.
 def optimize_calories(state: State):
     print("🧮 Routing: Running PuLP Math Engine...")
+    print("DEBUG - Targets:", {
+        "calories": state.get("target_calories"),
+        "protein": state.get("target_protein"),
+        "carbs": state.get("target_carbs"),
+        "fats": state.get("target_fats")
+    })
+    print("DEBUG - Menu Items Count:", len(state.get("menu_items") or []))
     if not state.get("menu_items"):
         return {"best_orders": []}
-    result = calorie_optimizer(
-        state["menu_items"],
-        state["target_calories"],
-        state["target_protein"],
-        state["target_carbs"],
-        state["target_fats"]
-    )
-    return {
-        "best_orders": [{
+    
+    current_menu = list(state["menu_items"])
+    best_orders = []
+    
+    for i in range(3):
+        if not current_menu:
+            break
+        result = calorie_optimizer(
+            current_menu,
+            state["target_calories"],
+            state["target_protein"],
+            state["target_carbs"],
+            state["target_fats"]
+        )
+        print(f"DEBUG - Run {i+1} Result:", result)
+        if not result or not result.get("order"):
+            break
+            
+        best_orders.append({
             **result,
-            "restaurant": "Uploaded Menu"
-        }]
-    }
+            "restaurant": f"Uploaded Menu (Option {i + 1})"
+        })
+        
+        # Remove the items returned in this order from the menu for the next iteration
+        used_items = {o["item"] for o in result["order"]}
+        current_menu = [item for item in current_menu if item["name"] not in used_items]
+        
+    return {"best_orders": best_orders}
 
 # finally the judge node takes all the best orders from all the restaurants and puts them against each other
 # to see the best overall meals. It then returns the same orders but sorted by the best to worst.

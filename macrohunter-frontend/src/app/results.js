@@ -165,6 +165,7 @@ function ResultLightbox({ result, onClose, topPick = false }) {
   const restaurantName = typeof restaurant === "string"
     ? restaurant
     : restaurant?.name ?? "Unknown";
+  const isPhysicalRestaurant = typeof restaurant === "object" && restaurant !== null;
   const address = typeof restaurant === "object" ? restaurant?.address : null;
   const photoUrl = typeof restaurant === "object" ? restaurant?.photo_url : null;
 
@@ -246,7 +247,7 @@ function ResultLightbox({ result, onClose, topPick = false }) {
           </View>
 
           <View className="lb-actions">
-            {!isScannedItem && (
+            {!isScannedItem && isPhysicalRestaurant && (
               <TouchableOpacity onPress={() => openNavigation(restaurant?.latitude, restaurant?.longitude, restaurantName)} className="lb-directions-btn">
               <Text>
                 Get Directions
