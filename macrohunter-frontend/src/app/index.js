@@ -1,12 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, TextInput, TouchableOpacity, Image, SafeAreaView } from '../constants/component-style';
 import { useState, useEffect } from "react";
+import { Alert } from 'react-native';
 import { Link } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSearch } from '../context/SearchContext';
 import {router, useLocalSearchParams} from "expo-router";
 import styles from '../constants/styles';
-
+import * as ImagePicker from 'expo-image-picker';
 
 
 export default function App() {
@@ -16,6 +17,26 @@ export default function App() {
       <HunterPage />
     </>
   );
+}
+async function takePicture(setImageUri) {
+  const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+
+  if (permissionResult.granted === false) {
+    Alert.alert('Permission Denied', 'You need to allow camera access to use this feature.');
+    return;
+  }
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    allowsEditing: false,
+    aspect: [4, 3],
+    quality: 0.8,
+  });
+
+  if (!result.canceled) {
+    const capturedUri = result.assets[0].uri;
+    setImageUri(capturedUri);
+  }
 }
 function ScoreTag({ score }) {
   const cls = score >= 90 ? "score-high" : score >= 75 ? "score-mid" : "score-low";
@@ -132,9 +153,51 @@ function HunterPage() {
   const [loading,  setLoading]  = useState(false);
   const {results,  setResults} = useSearch();
   const [selected, setSelected] = useState(null);
+  const [imageUri, setImageUri] = useState(null); 
+
+  useEffect(() => {
+    if(imageUri) {
+      scanMenu(imageUri);
+      router.push({
+        pathname: '/scan',
+        params: { imageUri }
+      })
+    }
+  }, [imageUri]);
 
   const isFormReady = calories && protein && carbs && fats;
 
+  const handleTakePicture = () => takePicture(setImageUri);
+  
+  const scanMenu = async () => {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: imageUri,
+      name: "menu.jpg",
+      type: "image/jpeg",
+    });
+    formData.append("target_calories", +calories);
+    formData.append("target_protein", +protein);
+    formData.append("target_carbs", +carbs);
+    formData.append("target_fats", +fats);
+
+    setLoading(true);
+    setResults(null);
+    try {
+      const res  = await fetch("http://10.0.0.233:8000/api/optimize-menu-image", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      setResults(data.results);
+      router.push('/results')
+    } catch (err) {
+      console.error("Search failed:", err);
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  };
   const runSearch = async (lat, lng) => {
     setLoading(true);
     setResults(null);
@@ -145,7 +208,6 @@ function HunterPage() {
       target_carbs: +carbs, target_fats: +fats,
     };
     try {
-      {/*NEED TO CHANGE*/}
       const res  = await fetch("http://10.0.0.233:8000/api/optimize-meal", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
@@ -187,7 +249,6 @@ function HunterPage() {
     });
     await runSearch(latitude, longitude);
   };
-  // NEED TO CHANGE
   const handleSearch = () => {
     if (!isFormReady) return;
     locState === "ready" && location.lat !== null ? runSearch(location.lat, location.lng) : requestLocationThenSearch();
@@ -199,35 +260,68 @@ function HunterPage() {
         <View className="panel-left">
           <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
           </View>
-          <View>
-            <View justifyContent="center" alignItems="center" gap={2}>
-              <Text className="hero-text">Hunt Your Macros</Text>
-            </View>
-            <View style={{ marginTop: 10 }}>
-              <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
+          <View style={{ position: 'relative', width: '100%', paddingTop: 44 }}>
+            <View style={{ alignItems: 'center' }}>
+              <View justifyContent="center" alignItems="center" gap={2}>
+                <Text className="hero-text">Hunt Your Macros</Text>
+              </View>
+              <View style={{ marginTop: 10 }}>
+                <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
+              </View>
             </View>
           </View>
           <CaloriesCard calories={calories} setCalories={setCalories} />
           <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
           <LocationCard locState={locState} location={location} />
-          <TouchableOpacity className={`search-btn ${loading ? "loading" : ""}`} onPress={handleSearch} disabled={loading || !isFormReady} activeOpacity={0.9}>
-            {loading ? (
-              <>
-                <Text className="spin">◈</Text>
-                <Text>Scanning Area…</Text>
-              </>
-            ) : locState === "acquiring" ? (
-              <>
-                <Text className="spin">◈</Text>
-                <Text>Awaiting Permission…</Text>
-              </>
-            ) : (
-              <>
-                <View className="btn-shimmer" />
-                <Text>⌖ Hunt Meals Nearby</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+            <TouchableOpacity
+              className={`search-btn ${loading ? "loading" : ""}`}
+              onPress={handleSearch}
+              disabled={loading || !isFormReady}
+              activeOpacity={0.9}
+              style={{ flex: 1.5, width: 'auto', opacity: (loading || !isFormReady) ? 0.4 : 1 }}
+            >
+              {loading ? (
+                <>
+                  <Text className="spin">◈</Text>
+                  <Text style={{ color: '#64748b' }}>Scanning Area…</Text>
+                </>
+              ) : locState === "acquiring" ? (
+                <>
+                  <Text className="spin">◈</Text>
+                  <Text style={{ color: '#64748b' }}>Awaiting Permission…</Text>
+                </>
+              ) : (
+                <>
+                  <View className="btn-shimmer" />
+                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>⌖ Hunt Meals Nearby</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleTakePicture}
+              disabled={loading || !isFormReady}
+              activeOpacity={0.8}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 16,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: 'rgba(20, 19, 19, 0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(102, 98, 98, 0.3)',
+                opacity: (loading || !isFormReady) ? 0.4 : 1,
+              }}
+            >
+              <Text style={{ color: '#0f172a', fontWeight: '600', fontSize: 14 }}>Scan Menu</Text>
+              <Text style={{ fontSize: 16 }}>📷</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {/*//DID HAVE RESULTS CARD HERE USE RESULTSTEXTEL INSTEAD LATER*/}
       </SafeAreaView>

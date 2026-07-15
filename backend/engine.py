@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+import base64
+from fastapi import FastAPI, Form, File, UploadFile
 from pydantic import BaseModel
 # import the langgraph agent from the other file
 from graph import graph 
@@ -13,7 +14,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# define input from user
 class UserRequest(BaseModel):
     searching_for_restaurant: bool
     latitude: float | None = None
@@ -23,11 +23,9 @@ class UserRequest(BaseModel):
     target_carbs: float
     target_fats: float
 
-
+# Endpoint 1: Standard JSON for Search/Hunt
 @app.post("/api/optimize-meal")
 def run_macro_hunter(request: UserRequest):
-    
-    # format frontend data
     initial_state = {
         "searching_for_restaurant": request.searching_for_restaurant,
         "lat" : request.latitude,
@@ -36,15 +34,47 @@ def run_macro_hunter(request: UserRequest):
         "target_protein": request.target_protein,
         "target_carbs": request.target_carbs,
         "target_fats": request.target_fats,
-        "current_restaurant_index": 0
+        "current_restaurant_index": 0,
+        "image_b64" : None
     }
-    
-    # run graph agent
     final_state = graph.invoke(initial_state)
     print("final_state keys:", final_state.keys())
     print("final_orders:", final_state.get("final_orders"))
     print("best_orders:", final_state.get("best_orders"))
     # return optimized meal plan to frontend
+    return {
+        "status": "success",
+        "results": final_state["final_orders"] 
+    }
+
+# Endpoint 2: Multipart Form-Data specifically for camera scans
+@app.post("/api/optimize-menu-image")
+async def run_macro_hunter_image(
+    target_calories: float = Form(...),
+    target_protein: float = Form(...),
+    target_carbs: float = Form(...),
+    target_fats: float = Form(...),
+    file: UploadFile = File(...)
+):
+    image_bytes = await file.read()
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+    
+    initial_state = {
+        "searching_for_restaurant": False,
+        "lat" : None,
+        "lon" : None,
+        "target_calories": target_calories,
+        "target_protein": target_protein,
+        "target_carbs": target_carbs,
+        "target_fats": target_fats,
+        "current_restaurant_index": 0,
+        "image_b64" : image_b64
+    }
+    
+    final_state = graph.invoke(initial_state)
+    print("final_state keys:", final_state.keys())
+    print("final_orders:", final_state.get("final_orders"))
+    print("best_orders:", final_state.get("best_orders"))
     return {
         "status": "success",
         "results": final_state["final_orders"] 

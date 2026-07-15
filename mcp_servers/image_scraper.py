@@ -49,7 +49,7 @@ async def translate_menu(file: UploadFile = File(...)):
      }
     ]
 
-    If a field isn't visible, estimate based on information provided in the image.
+    If a field (like protein, carbs, fats, or calories) is not explicitly visible on the menu, you MUST estimate its value using your general nutritional knowledge for that type of food. Do not return null or leave these fields blank. Every item in the returned JSON list must contain estimated numeric values (integers) for calories, protein, carbs, and fats.
     """
 
     response = client.models.generate_content(

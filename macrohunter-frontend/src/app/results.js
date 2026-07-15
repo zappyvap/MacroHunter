@@ -26,20 +26,35 @@ function SkeletonCard() {
   );
 }
 function ResultCard({ result, index, onPress }) {
-    const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
+    const isScannedItem = !result.achieved_macros;
+
+    const achieved_macros = result.achieved_macros || {
+        cal: result.calories ?? result.Calories ?? result.cal ?? result.Cal ?? 0,
+        p: result.protein ?? result.Protein ?? result.p ?? result.P ?? 0,
+        c: result.carbs ?? result.Carbs ?? result.carb ?? result.Carb ?? result.c ?? result.C ?? 0,
+        f: result.fats ?? result.Fats ?? result.fat ?? result.Fat ?? result.f ?? result.F ?? 0
+    };
     const { cal, p, c, f } = achieved_macros;
+    console.log("ResultCard debug details:", { name: result.name, p, c, f, cal, raw: result });
+
+    const restaurant = isScannedItem ? "Scanned Menu" : result.restaurant;
     const restaurantName = typeof restaurant === "string"
-    ? restaurant
-    : restaurant?.name ?? "Unknown";
+        ? restaurant
+        : restaurant?.name ?? "Unknown";
 
-    const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
+    const totalGap = isScannedItem ? 0 : ((result.gaps?.p || 0) + (result.gaps?.c || 0) + (result.gaps?.f || 0));
     const score = Math.max(0, Math.round(100 - totalGap));
-    const topPick = status === "Optimal";
+    const topPick = isScannedItem ? false : (result.status === "Optimal" && index === 0);
 
-    const dishSummary = order
-    .filter(o => o.quantity > 0)
-    .map(o => `${o.quantity}x ${o.item}`)
-    .join(", ");
+    const total_cost = isScannedItem ? result.price : result.total_cost;
+    const status = isScannedItem ? "Scanned Item" : result.status;
+
+    const dishSummary = isScannedItem 
+        ? result.name 
+        : (result.order || [])
+            .filter(o => o.quantity > 0)
+            .map(o => `${o.quantity}x ${o.item}`)
+            .join(", ") || "Custom Order";
 
     return (
     <TouchableOpacity
@@ -61,16 +76,16 @@ function ResultCard({ result, index, onPress }) {
             <View className="rmacro"><Text className="rmacro-label">Protein</Text><Text className="rmacro-val p">{p}g</Text></View>
             <View className="rmacro"><Text className="rmacro-label">Carbs</Text><Text className="rmacro-val c">{c}g</Text></View>
             <View className="rmacro"><Text className="rmacro-label">Fats</Text><Text className="rmacro-val f">{f}g</Text></View>
-            <View className="result-right">
+        </View>
+        </View>
+        <View className="result-right">
             <View><View><Text className="result-cal">{cal}</Text><Text className="result-cal-unit">kcal</Text></View></View>
-            <ScoreTag score={score} />
-        </View>
-        </View>
+            {!isScannedItem && <ScoreTag score={score} />}
         </View>
         
     </TouchableOpacity>
     );
-    }
+}
 
 // ─── ResultTextel ─────────────────────────────────────────────────────────────
 function ResultTextel({ loading, results, onCardPress }) {
@@ -78,9 +93,21 @@ function ResultTextel({ loading, results, onCardPress }) {
     <View className="panel-right">
       <View className="results-header">
         <View>
-          <Text className="results-title">{results ? "Nearby Matches" : loading ? "Optimizing..." : "Results"}</Text>
+          <Text className="results-title">
+            {results 
+              ? (results[0] && !results[0].achieved_macros ? "Scanned Menu" : "Nearby Matches")
+              : (loading ? "Optimizing..." : "Results")}
+          </Text>
         </View>
-        {results && <View><Text className="results-count">{results.length} locations found</Text></View>}
+        {results && (
+          <View>
+            <Text className="results-count">
+              {results[0] && !results[0].achieved_macros 
+                ? `${results.length} items found` 
+                : `${results.length} locations found`}
+            </Text>
+          </View>
+        )}
       </View>
       {loading && (
         <View className="results-list">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
@@ -122,24 +149,38 @@ const openNavigation = (latitude, longitude, label = 'Destination') => {
 };
 
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
-function ResultLightbox({ result, onClose }) {
-  const { achieved_macros, gaps, status, total_cost, order, restaurant } = result;
-  const { cal, p, c, f } = achieved_macros;
+function ResultLightbox({ result, onClose, topPick = false }) {
+  const isScannedItem = !result.achieved_macros;
 
+   const achieved_macros = result.achieved_macros || {
+    cal: result.calories ?? result.Calories ?? result.cal ?? result.Cal ?? 0,
+    p: result.protein ?? result.Protein ?? result.p ?? result.P ?? 0,
+    c: result.carbs ?? result.Carbs ?? result.carb ?? result.Carb ?? result.c ?? result.C ?? 0,
+    f: result.fats ?? result.Fats ?? result.fat ?? result.Fat ?? result.f ?? result.F ?? 0
+  };
+  const { cal, p, c, f } = achieved_macros;
+  console.log("ResultLightbox debug details:", { name: result.name, p, c, f, cal, raw: result });
+
+  const restaurant = isScannedItem ? "Scanned Menu" : result.restaurant;
   const restaurantName = typeof restaurant === "string"
     ? restaurant
     : restaurant?.name ?? "Unknown";
+  const isPhysicalRestaurant = typeof restaurant === "object" && restaurant !== null;
   const address = typeof restaurant === "object" ? restaurant?.address : null;
   const photoUrl = typeof restaurant === "object" ? restaurant?.photo_url : null;
 
-  const totalGap = (gaps.p || 0) + (gaps.c || 0) + (gaps.f || 0);
+  const totalGap = isScannedItem ? 0 : ((result.gaps?.p || 0) + (result.gaps?.c || 0) + (result.gaps?.f || 0));
   const score = Math.max(0, Math.round(100 - totalGap));
-  const topPick = status === "Optimal";
 
-  const dishSummary = order
-    .filter(o => o.quantity > 0)
-    .map(o => `${o.quantity}× ${o.item}`)
-    .join(", ");
+  const total_cost = isScannedItem ? result.price : result.total_cost;
+  const status = isScannedItem ? "Scanned Item" : result.status;
+
+  const dishSummary = isScannedItem 
+    ? result.name 
+    : (result.order || [])
+        .filter(o => o.quantity > 0)
+        .map(o => `${o.quantity}× ${o.item}`)
+        .join(", ") || "Custom Order";
 
   return (
     <View className="lb-overlay" onPress={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -201,20 +242,24 @@ function ResultLightbox({ result, onClose }) {
           <View className="lb-Viewider" />
 
           <View className="lb-price-row">
-            <Text className="lb-price-label">Estimated total</Text>
+            <Text className="lb-price-label">{isScannedItem ? "Price" : "Estimated total"}</Text>
             <Text className="lb-price-val">${total_cost}</Text>
           </View>
 
           <View className="lb-actions">
-            <TouchableOpacity onPress={() => openNavigation(restaurant?.latitude, restaurant?.longitude, restaurantName)} className="lb-directions-btn">
-            <Text>
-              Get Directions
-            </Text>
-            </TouchableOpacity>
-            <View className="lb-score-chip">
-              <Text className="lb-score-num">{score}%</Text>
-              <Text className="lb-score-label">Match</Text>
-            </View>
+            {!isScannedItem && isPhysicalRestaurant && (
+              <TouchableOpacity onPress={() => openNavigation(restaurant?.latitude, restaurant?.longitude, restaurantName)} className="lb-directions-btn">
+              <Text>
+                Get Directions
+              </Text>
+              </TouchableOpacity>
+            )}
+            {!isScannedItem && (
+              <View className="lb-score-chip">
+                <Text className="lb-score-num">{score}%</Text>
+                <Text className="lb-score-label">Match</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -228,7 +273,7 @@ export default function ResultsPage() {
     const [selectedResult, setSelectedResult] = useState(null);
 
   return (
-    <>
+    <SafeAreaView className="container">
       <ResultTextel
         loading={false}
         results={results}
@@ -238,8 +283,9 @@ export default function ResultsPage() {
         <ResultLightbox
           result={selectedResult}
           onClose={() => setSelectedResult(null)}
+          topPick={selectedResult === results?.[0] && selectedResult.status === "Optimal"}
         />
       )}
-    </>
+    </SafeAreaView>
   );
 }
