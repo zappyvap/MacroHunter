@@ -6,7 +6,8 @@ from datetime import datetime, timezone, timedelta
 from mcp.server.fastmcp import FastMCP
 from google import genai
 from google.genai.types import GenerateContentConfig
-from mcp_servers.supabase_client import supabase
+from supabase_client import supabase
+from ingredient_analyzer import analyze_ingredient
 
 dotenv.load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -35,7 +36,7 @@ def _get_cached_menu(restaurant_name: str):
         if not result.data:
             return None
 
-        row = result.data[0]
+        row: dict = result.data[0]  # type: ignore[assignment]
         cached_at = datetime.fromisoformat(row["cached_at"])
         age = datetime.now(timezone.utc) - cached_at
 
@@ -70,6 +71,8 @@ def get_fatsecret_token():
     """Exchanges your Client ID and Secret for a temporary OAuth 2.0 Access Token."""
     client_id = os.getenv("FATSECRET_CLIENT_ID")
     client_secret = os.getenv("FATSECRET_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise ValueError("FATSECRET_CLIENT_ID and FATSECRET_CLIENT_SECRET must be set in environment variables.")
 
     token_url = "https://oauth.fatsecret.com/connect/token"
 
@@ -86,24 +89,17 @@ def get_fatsecret_token():
     return response.json().get("access_token")
 
 # this function is for when fatsecret doesn't have the restaurant info
-# we use Gemini to estimate the menu.
+# we use Gemini to estimate the menu items and call the ingredient analyzer.
 def estimate_menu_via_ai(restaurant_name: str) -> str:
     prompt = f"""
     You are a nutrition database. For the restaurant "{restaurant_name}", 
-    list 15-20 common menu items with estimated macros.
+    list 15-20 common menu items and list its main ingredients. 
+    Double check and do sanity checks on the
+    items that you do know. Include ONLY items that you KNOW are on the menu.
+    if you are not 100% sure on an item or its ingredients, don't include it.
     
-    Only include items if you have reasonable confidence in the macros.
-    Return ONLY a JSON array:
-    [{{
-        "name": "Item Name",
-        "calories": int,
-        "protein": int,
-        "carbs": int,
-        "fats": int,
-        "price": float,
-        "restaurant": "{restaurant_name}",
-        "estimated": true
-    }}]
+    Return only a JSON array with this exact structure. 
+    Example: [{"item": "item1", "ingredients": ["ingredient1", "ingredient2", "ingredient3"]}, {"item": "item2", "ingredients": ["ingredient1", "ingredient2", "ingredient3"]}]
     If you don't know this restaurant well enough, return [].
     """
     response = client.models.generate_content(
@@ -111,7 +107,11 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
         config=GenerateContentConfig(response_mime_type="application/json"),
         contents=prompt,
     )
-    return response.text
+    parsed = response.parsed
+    if not isinstance(parsed, list):
+        return json.dumps([])
+    return json.dumps([vars(item) for item in analyze_ingredient(parsed)])
+
 
 # this tool takes in the restaurant name and the number of items we search and then returns a menu that
 # holds all the information of the items on that restaurants menu
@@ -205,17 +205,17 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
         macros = {"Calories": 0, "Protein": 0, "Carbs": 0, "Fat": 0}
         parts = desc.replace("kcal", "").replace("g", "").split("|")
         for part in parts:
-            if "Calories" in part: macros["Calories"] = float(part.split(":")[1].strip())
-            elif "Protein" in part: macros["Protein"] = float(part.split(":")[1].strip())
-            elif "Carbs" in part: macros["Carbs"] = float(part.split(":")[1].strip())
-            elif "Fat" in part: macros["Fat"] = float(part.split(":")[1].strip())
+            if "Calories" in part: macros["Calories"] = int(float(part.split(":")[1].strip()))
+            elif "Protein" in part: macros["Protein"] = int(float(part.split(":")[1].strip()))
+            elif "Carbs" in part: macros["Carbs"] = int(float(part.split(":")[1].strip()))
+            elif "Fat" in part: macros["Fat"] = int(float(part.split(":")[1].strip()))
 
         extracted_foods.append({
             "name": name,
-            "calories": int(macros["Calories"]),
-            "protein": int(macros["Protein"]),
-            "carbs": int(macros["Carbs"]),
-            "fats": int(macros["Fat"])
+            "calories": macros["Calories"],
+            "protein": macros["Protein"],
+            "carbs": macros["Carbs"],
+            "fats": macros["Fat"]
         })
         item_names.append(name)
 
@@ -237,7 +237,10 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
             ),
             contents=f"Restaurant: {restaurant_name}\nItems: {json.dumps(item_names)}",
         )
-        estimated_prices = json.loads(price_response.text)
+        if price_response.text is not None:
+            estimated_prices = json.loads(price_response.text)
+        else:
+            estimated_prices = {}
     except Exception as e:
         print(f"Warning: Gemini price estimation failed: {e}")
         estimated_prices = {}
