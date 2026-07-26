@@ -6,8 +6,15 @@ from datetime import datetime, timezone, timedelta
 from mcp.server.fastmcp import FastMCP
 from google import genai
 from google.genai.types import GenerateContentConfig
-from supabase_client import supabase
-from ingredient_analyzer import analyze_ingredient
+try:
+    from supabase_client import supabase
+except ModuleNotFoundError:
+    from mcp_servers.supabase_client import supabase
+
+try:
+    from ingredient_analyzer import analyze_ingredient
+except ModuleNotFoundError:
+    from mcp_servers.ingredient_analyzer import analyze_ingredient
 
 dotenv.load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -21,11 +28,41 @@ mcp = FastMCP("Chain Restaurant Menu Search Tool")
 # skip straight past FatSecret/Gemini on repeat lookups.
 
 CACHE_TABLE = "menu_cache"
-CACHE_MAX_AGE_DAYS = 30  # after this long we re-fetch, in case prices/menus changed
+CACHE_MAX_AGE_DAYS = 0  # set to 0 to force a re-fetch and cache update every time
 
 def _cache_key(restaurant_name: str) -> str:
     """Normalize the name so 'Applebee's' and 'applebee's' hit the same row."""
     return restaurant_name.strip().lower()
+
+def _normalize_menu(menu: list, restaurant_name: str) -> list:
+    normalized = []
+    for item in menu:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("item") or "Unknown Item"
+        calories = float(item.get("calories") or item.get("cal") or item.get("Calories") or item.get("Cal") or 0.0)
+        protein = float(item.get("protein") or item.get("Protein") or item.get("p") or item.get("P") or 0.0)
+        carbs = float(item.get("carbs") or item.get("Carbs") or item.get("carb") or item.get("Carb") or item.get("c") or item.get("C") or 0.0)
+        fats = float(item.get("fats") or item.get("Fats") or item.get("fat") or item.get("Fat") or item.get("f") or item.get("F") or 0.0)
+        
+        price = 10.0
+        if "price" in item:
+            try:
+                price = float(item["price"])
+            except (ValueError, TypeError):
+                pass
+                
+        normalized.append({
+            "name": name,
+            "calories": calories,
+            "protein": protein,
+            "carbs": carbs,
+            "fats": fats,
+            "price": price,
+            "restaurant": item.get("restaurant") or restaurant_name,
+            "estimated": item.get("estimated", False)
+        })
+    return normalized
 
 def _get_cached_menu(restaurant_name: str):
     """Returns the cached menu (a list) if we have a fresh one, otherwise None."""
@@ -93,13 +130,19 @@ def get_fatsecret_token():
 def estimate_menu_via_ai(restaurant_name: str) -> str:
     prompt = f"""
     You are a nutrition database. For the restaurant "{restaurant_name}", 
-    list 15-20 common menu items and list its main ingredients. 
+    list 15-20 common menu items and list its main ingredients.
     Double check and do sanity checks on the
     items that you do know. Include ONLY items that you KNOW are on the menu.
     if you are not 100% sure on an item or its ingredients, don't include it.
     
+    IMPORTANT: Every ingredient MUST include a quantity and unit. Use standard units like oz, lb, tbsp, tsp, cup, slice, piece, g, or ml.
+    For example: "6 oz ground beef patty", "1 slice cheddar cheese", "1 tbsp ketchup", "2 oz shredded lettuce", "1 piece hamburger bun".
+    Never list an ingredient without a quantity and unit.
+    
+    NOTE ON PORTIONS: Restaurant portions are notoriously large compared to home cooking. A typical restaurant pasta dish uses 10-16 oz of pasta (not 2-6 oz). A restaurant burger uses a 6-8 oz patty and generous amounts of sauce, cheese, and oil/butter. Estimate ingredient quantities to match real-world RESTAURANT sizes.
+    
     Return only a JSON array with this exact structure. 
-    Example: [{"item": "item1", "ingredients": ["ingredient1", "ingredient2", "ingredient3"]}, {"item": "item2", "ingredients": ["ingredient1", "ingredient2", "ingredient3"]}]
+    Example: [{{"item": "Cheeseburger", "ingredients": ["6 oz ground beef patty", "1 piece hamburger bun", "1 slice cheddar cheese", "1 tbsp ketchup", "1 tsp mustard"]}}]
     If you don't know this restaurant well enough, return [].
     """
     response = client.models.generate_content(
@@ -107,10 +150,58 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
         config=GenerateContentConfig(response_mime_type="application/json"),
         contents=prompt,
     )
-    parsed = response.parsed
+    try:
+        parsed = json.loads(response.text) if response.text else []
+    except Exception:
+        parsed = []
     if not isinstance(parsed, list):
         return json.dumps([])
-    return json.dumps([vars(item) for item in analyze_ingredient(parsed)])
+
+    analyzed_foods = analyze_ingredient(parsed)
+    item_names = [food.item for food in analyzed_foods]
+
+    estimated_prices = {}
+    if item_names:
+        system_instruction = """
+        You are a professional price estimator.
+        I will give you a list of fast food items from a specific restaurant.
+        Estimate the average US price for each item.
+        Return ONLY a JSON dictionary where the key is the exact item name, and the value is a float (e.g., 5.99).
+        Do not use dollar signs. Do not include any explanation or extra text.
+        """
+        try:
+            price_response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                config=GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    response_mime_type="application/json",
+                ),
+                contents=f"Restaurant: {restaurant_name}\nItems: {json.dumps(item_names)}",
+            )
+            if price_response.text is not None:
+                estimated_prices = json.loads(price_response.text)
+        except Exception as e:
+            print(f"Warning: Gemini price estimation failed for AI menu: {e}")
+
+    normalized_menu = []
+    for food in analyzed_foods:
+        try:
+            price = float(estimated_prices.get(food.item, 10.0))
+        except (ValueError, TypeError):
+            price = 10.0
+
+        normalized_menu.append({
+            "name": food.item,
+            "calories": food.calories,
+            "protein": food.protein,
+            "carbs": food.carbs,
+            "fats": food.fat,
+            "price": price,
+            "restaurant": restaurant_name,
+            "estimated": True
+        })
+
+    return json.dumps(normalized_menu)
 
 
 # this tool takes in the restaurant name and the number of items we search and then returns a menu that
@@ -125,6 +216,8 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
     cached_menu = _get_cached_menu(restaurant_name)
     if cached_menu is not None:
         print(f"⚡ Cache hit for '{restaurant_name}' — skipping live fetch")
+        if isinstance(cached_menu, list):
+            return json.dumps(_normalize_menu(cached_menu, restaurant_name))
         return json.dumps(cached_menu)
 
     # only search for restaurants that FatSecret actually has data for
@@ -170,7 +263,6 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
         response = requests.get(search_url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
-        print("RAW FATSECRET RESPONSE:", json.dumps(data, indent=2))
     except Exception as e:
         return f"Error fetching from FatSecret: {str(e)}"
 
@@ -197,18 +289,51 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
 
     for item in foods_data:
         name = item.get("food_name", "Unknown")
-        # FatSecret returns macros as a single string description we need to parse
-        # Example: "Per 100g - Calories: 250kcal | Fat: 10.00g | Carbs: 30.00g | Protein: 15.00g"
         desc = item.get("food_description", "")
+        lower_desc = desc.lower()
 
-        # Simple extraction logic to pull out the raw numbers
         macros = {"Calories": 0, "Protein": 0, "Carbs": 0, "Fat": 0}
-        parts = desc.replace("kcal", "").replace("g", "").split("|")
-        for part in parts:
-            if "Calories" in part: macros["Calories"] = int(float(part.split(":")[1].strip()))
-            elif "Protein" in part: macros["Protein"] = int(float(part.split(":")[1].strip()))
-            elif "Carbs" in part: macros["Carbs"] = int(float(part.split(":")[1].strip()))
-            elif "Fat" in part: macros["Fat"] = int(float(part.split(":")[1].strip()))
+
+        # If it's a generic weight (e.g. 100g or 1 oz), the description doesn't have the full meal size.
+        # We must make an extra API call to get the actual serving size.
+        if "per 100g" in lower_desc or "per 100 g" in lower_desc or "oz" in lower_desc:
+            food_id = item.get("food_id")
+            if not food_id:
+                continue
+                
+            get_params = {"method": "food.get.v2", "food_id": food_id, "format": "json"}
+            try:
+                res = requests.get(search_url, headers=headers, params=get_params)
+                res.raise_for_status()
+                food_info = res.json().get("food", {})
+                servings = food_info.get("servings", {}).get("serving", [])
+                if isinstance(servings, dict):
+                    servings = [servings]
+                
+                if not servings:
+                    continue
+                    
+                # Find a non-weight serving size
+                chosen_serving = servings[0]
+                for s in servings:
+                    if s.get("measurement_description", "").lower() not in ["g", "oz", "ml"]:
+                        chosen_serving = s
+                        break
+                        
+                macros["Calories"] = int(float(chosen_serving.get("calories", 0)))
+                macros["Protein"] = int(float(chosen_serving.get("protein", 0)))
+                macros["Carbs"] = int(float(chosen_serving.get("carbohydrate", 0)))
+                macros["Fat"] = int(float(chosen_serving.get("fat", 0)))
+            except Exception:
+                continue
+        else:
+            # It's a standard serving size (e.g. "Per 1 serving"), we can safely do fast string parsing!
+            parts = desc.replace("kcal", "").replace("g", "").split("|")
+            for part in parts:
+                if "Calories" in part: macros["Calories"] = int(float(part.split(":")[1].strip()))
+                elif "Protein" in part: macros["Protein"] = int(float(part.split(":")[1].strip()))
+                elif "Carbs" in part: macros["Carbs"] = int(float(part.split(":")[1].strip()))
+                elif "Fat" in part: macros["Fat"] = int(float(part.split(":")[1].strip()))
 
         extracted_foods.append({
             "name": name,

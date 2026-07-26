@@ -50,6 +50,8 @@ async def translate_menu(file: UploadFile = File(...)):
     ]
 
     If a field (like protein, carbs, fats, or calories) is not explicitly visible on the menu, you MUST estimate its value using your general nutritional knowledge for that type of food. Do not return null or leave these fields blank. Every item in the returned JSON list must contain estimated numeric values (integers) for calories, protein, carbs, and fats.
+    
+    NOTE ON PORTIONS: Remember that restaurant portions are notoriously large (e.g., pasta dishes are often 10-16 oz, burgers are 6-8 oz patties with generous cheese/sauce). Factor these large real-world restaurant sizes into your macro and calorie estimates.
     """
 
     response = client.models.generate_content(

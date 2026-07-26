@@ -9,7 +9,7 @@ load_dotenv()
 mcp = FastMCP("Restaurant Finder")
  
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-RESULT_LIMIT = 15
+RESULT_LIMIT = 3
 
 # make the pydantic model for the input so that it automatically validates and parses the input for us, 
 # and also serves as documentation for what the input should look like
