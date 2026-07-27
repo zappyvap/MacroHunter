@@ -108,7 +108,7 @@ def _try_common_fallback(ing_name: str, ing_weight: float):
     Returns (calories, protein, carbs, fat) or None if no match."""
     name_lower = ing_name.lower()
     for keyword in sorted(COMMON_FALLBACKS.keys(), key=len, reverse=True):
-        if keyword in name_lower:
+        if re.search(r'\b' + re.escape(keyword) + r'\b', name_lower):
             fb = COMMON_FALLBACKS[keyword]
             scale = ing_weight / 100.0
             return (fb["cal"] * scale, fb["p"] * scale, fb["c"] * scale, fb["f"] * scale)
