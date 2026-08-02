@@ -6,6 +6,8 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from PIL import Image
+from pydantic import BaseModel, Field
+from typing import Literal
 
 load_dotenv()
 
@@ -19,11 +21,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class Ingredient(BaseModel):
+    name: str = Field(description="USDA-style food name: 'Food, descriptor, state'. Examples: 'Oil, canola', 'Onions, raw', 'Cheese, cheddar', 'Beef, ground, 80% lean, raw'. No quantities or preparation notes.")
+    quantity: float = Field(description="Numeric amount")
+    unit: Literal["oz", "g", "lb", "cup", "tbsp", "tsp", "slice", "piece", "ml"]
+
+class RestaurantItems(BaseModel):
+    itemName: str
+    price: float = Field(description="The price of the item on the menu. Do not include the currency symbol. E.g. 12.99", default=10.0)
+    ingredients: list[Ingredient]
+
 """
 Using a FastAPI server instead of MCP for this case because the MCP would need a cached
 version of the image to work with and that adds unnecessary complexity. This endpoint is just for
 taking in an image, sending it to Gemini for translation, and then returning the JSON result.
 """
+from ingredient_analyzer import analyze_ingredient
+
 @app.post("/translate-menu")
 async def translate_menu(file: UploadFile = File(...)):
     """
@@ -34,29 +48,53 @@ async def translate_menu(file: UploadFile = File(...)):
     image = Image.open(io.BytesIO(contents))
 
     prompt = """
-    This is a restaurant menu. Extract every item and return ONLY a JSON array,
-    no markdown, no explanation, just raw JSON.
+    This is a restaurant menu. Extract every item and list its raw ingredients.
+    Include ONLY items you are confident are on the menu.
 
-    Use this exact format:
-    [
-      {
-        "name": "Food Item Name",
-        "protein": grams of protein,
-        "carbs": grams of carbs,
-        "fats": grams of fats,
-        "calories": total calories,
-        "price": cost of the item
-     }
-    ]
+    INGREDIENT NAMING: Use USDA-style names in the format "Food, descriptor, state".
+    Examples: "Oil, canola", "Onions, raw", "Cheese, cheddar", "Beef, ground, 80% lean, raw",
+    "Tomatoes, red, ripe, raw", "Bread, hamburger bun", "Sauce, barbecue".
 
-    If a field (like protein, carbs, fats, or calories) is not explicitly visible on the menu, you MUST estimate its value using your general nutritional knowledge for that type of food. Do not return null or leave these fields blank. Every item in the returned JSON list must contain estimated numeric values (integers) for calories, protein, carbs, and fats.
+    PORTIONS: You MUST estimate large, calorie-dense American restaurant portions. DO NOT use home-cooking or standard dietary portion sizes.
+    Restaurant meals are massive. A pub sandwich or burger often contains 6-8 oz of meat, heavy butter/oil, and huge sides (12+ oz of fries/potatoes).
+    A restaurant pasta dish uses 6-8 oz cooked pasta. Sauces and dressings are heavy (2-4 tbsp).
+    A bowl of soup is typically 16-24 oz (2-3 cups) and contains plenty of mix-ins (e.g., 5-8 wontons, 2 eggs).
+    Appetizers (giant pub pretzels, wings, egg rolls) are huge (e.g., a 10 oz soft pretzel, 4 oz cheese dip).
     """
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=[image, prompt],
-        config={"temperature": 0.1}
+        config={"temperature": 0.1, "response_mime_type": "application/json", "response_schema": list[RestaurantItems]}
     )
 
-    text = response.text.strip().removeprefix("```json").removesuffix("```").strip()
-    return json.loads(text)
+    parsed = response.parsed if response.parsed else []
+    if not isinstance(parsed, list):
+        return []
+
+    # Convert to legacy dict format for analyze_ingredient
+    legacy_items = []
+    for item in parsed:
+        ingredients = [f"{ing.quantity} {ing.unit} {ing.name}" for ing in item.ingredients]
+        legacy_items.append({"item": item.itemName, "ingredients": ingredients})
+
+    # Run through the math engine
+    analyzed_foods = analyze_ingredient(legacy_items)
+    
+    # Format for the frontend
+    results = []
+    
+    # We need to map the analyzed foods back to their original parsed items to grab the extracted price
+    price_map = {item.itemName: item.price for item in parsed}
+    
+    for food in analyzed_foods:
+        results.append({
+            "name": food.item,
+            "calories": food.calories,
+            "protein": food.protein,
+            "carbs": food.carbs,
+            "fats": food.fat,
+            "price": price_map.get(food.item, 10.00)
+        })
+        
+    return results

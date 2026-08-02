@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+markers = [
+    "e2e: end-to-end accuracy tests that hit real APIs (USDA, FatSecret, Gemini). Run with --e2e.",
+]
