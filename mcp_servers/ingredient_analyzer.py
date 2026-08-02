@@ -50,6 +50,8 @@ PIECE_WEIGHTS: dict[str, float] = {
     "egg": 50.0, "sausage link": 45.0, "sausage": 45.0,
     "hot dog": 45.0, "frank": 45.0,
     "fish fillet": 90.0, "shrimp": 6.0,
+    "wonton": 20.0, "egg roll": 80.0, "spring roll": 45.0, "dumpling": 25.0,
+    "potsticker": 30.0, "crab rangoon": 25.0,
     # Produce (whole pieces)
     "lettuce": 8.0, "leaf": 5.0, "tomato": 120.0, "onion ring": 15.0,
     "pickle spear": 35.0,
@@ -100,6 +102,12 @@ COMMON_FALLBACKS: dict[str, dict[str, float]] = {
     "béchamel":     {"cal":  90.0, "p":  3.0, "c": 5.5, "f": 6.0, "serving_g": 120.0},
     "bechamel":     {"cal":  90.0, "p":  3.0, "c": 5.5, "f": 6.0, "serving_g": 120.0},
     "lo mein noodles":{"cal": 138.0, "p": 4.6, "c": 25.0, "f": 2.0, "serving_g": 200.0},
+    "sauce, general tso": {"cal": 230.0, "p": 1.0, "c": 45.0, "f": 5.0, "serving_g": 60.0},
+    "sauce, orange chicken": {"cal": 220.0, "p": 1.0, "c": 45.0, "f": 4.0, "serving_g": 60.0},
+    "sauce, sesame chicken": {"cal": 250.0, "p": 1.0, "c": 40.0, "f": 10.0, "serving_g": 60.0},
+    "sauce, kung pao": {"cal": 180.0, "p": 2.0, "c": 25.0, "f": 8.0, "serving_g": 60.0},
+    "sauce, mongolian beef": {"cal": 150.0, "p": 2.0, "c": 20.0, "f": 7.0, "serving_g": 60.0},
+    "sauce, sweet and sour": {"cal": 150.0, "p": 0.1, "c": 38.0, "f": 0.1, "serving_g": 60.0},
 }
 
 
@@ -117,10 +125,9 @@ def _try_common_fallback(ing_name: str, ing_weight: float):
 
 def _lookup_ingredient_weight(ingredient_name: str, table: dict[str, float], default: float) -> float:
     """Find the best per-unit weight for an ingredient by matching keywords.
-    Longer (more specific) keys are checked first so 'bell pepper' matches
-    before 'pepper'."""
+    Longer (more specific) keys are checked first. Secondary sort is reverse alphabetical."""
     name_lower = ingredient_name.lower()
-    for keyword in sorted(table.keys(), key=len, reverse=True):
+    for keyword in sorted(table.keys(), key=lambda k: (len(k), k), reverse=True):
         if keyword in name_lower:
             return table[keyword]
     return default

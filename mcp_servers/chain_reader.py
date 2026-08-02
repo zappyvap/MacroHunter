@@ -1,3 +1,5 @@
+from typing import Literal
+from pydantic import Field
 import os
 import requests
 import json
@@ -16,6 +18,8 @@ try:
 except ModuleNotFoundError:
     from mcp_servers.ingredient_analyzer import analyze_ingredient
 
+from pydantic import BaseModel
+
 dotenv.load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 mcp = FastMCP("Chain Restaurant Menu Search Tool")
@@ -26,6 +30,16 @@ mcp = FastMCP("Chain Restaurant Menu Search Tool")
 # menu-estimation call. The same restaurants come up over and over for
 # people searching nearby, so we cache the finished menu in Supabase and
 # skip straight past FatSecret/Gemini on repeat lookups.
+
+class Ingredient(BaseModel):
+    name: str = Field(description="USDA-style food name: 'Food, descriptor, state'. Examples: 'Oil, canola', 'Onions, raw', 'Cheese, cheddar', 'Beef, ground, 80% lean, raw'. No quantities or preparation notes.")
+    quantity: float = Field(description="Numeric amount")
+    unit: Literal["oz", "g", "lb", "cup", "tbsp", "tsp", "slice", "piece", "ml"]
+
+class RestaurantItems(BaseModel):
+    itemName: str
+    ingredients: list[Ingredient]
+
 
 CACHE_TABLE = "menu_cache"
 CACHE_MAX_AGE_DAYS = 0  # set to 0 to force a re-fetch and cache update every time
@@ -129,35 +143,40 @@ def get_fatsecret_token():
 # we use Gemini to estimate the menu items and call the ingredient analyzer.
 def estimate_menu_via_ai(restaurant_name: str) -> str:
     prompt = f"""
-    You are a nutrition database. For the restaurant "{restaurant_name}", 
-    list 15-20 common menu items and list its main ingredients.
-    Double check and do sanity checks on the
-    items that you do know. Include ONLY items that you KNOW are on the menu.
-    if you are not 100% sure on an item or its ingredients, don't include it.
-    
-    IMPORTANT: Every ingredient MUST include a quantity and unit. Use standard units like oz, lb, tbsp, tsp, cup, slice, piece, g, or ml.
-    For example: "6 oz ground beef patty", "1 slice cheddar cheese", "1 tbsp ketchup", "2 oz shredded lettuce", "1 piece hamburger bun".
-    Never list an ingredient without a quantity and unit.
-    
-    NOTE ON PORTIONS: Restaurant portions are notoriously large compared to home cooking. A typical restaurant pasta dish uses 10-16 oz of pasta (not 2-6 oz). A restaurant burger uses a 6-8 oz patty and generous amounts of sauce, cheese, and oil/butter. Estimate ingredient quantities to match real-world RESTAURANT sizes.
-    
-    Return only a JSON array with this exact structure. 
-    Example: [{{"item": "Cheeseburger", "ingredients": ["6 oz ground beef patty", "1 piece hamburger bun", "1 slice cheddar cheese", "1 tbsp ketchup", "1 tsp mustard"]}}]
-    If you don't know this restaurant well enough, return [].
+    You are a nutrition database. For the restaurant "{restaurant_name}",
+    list 15-20 common menu items with their ingredients.
+    Include ONLY items you are confident are on the menu.
+
+    INGREDIENT NAMING: Use USDA-style names in the format "Food, descriptor, state".
+    Examples: "Oil, canola", "Onions, raw", "Cheese, cheddar", "Beef, ground, 80% lean, raw",
+    "Tomatoes, red, ripe, raw", "Bread, hamburger bun", "Sauce, barbecue".
+
+    PORTIONS: You MUST estimate large, calorie-dense American restaurant portions. DO NOT use home-cooking or standard dietary portion sizes.
+    Restaurant meals are massive. A pub sandwich or burger often contains 6-8 oz of meat, heavy butter/oil, and huge sides (12+ oz of fries/potatoes).
+    A restaurant pasta dish uses 6-8 oz cooked pasta. Sauces and dressings are heavy (2-4 tbsp).
+    A bowl of soup is typically 16-24 oz (2-3 cups) and contains plenty of mix-ins (e.g., 5-8 wontons, 2 eggs).
+    Appetizers (giant pub pretzels, wings, egg rolls) are huge (e.g., a 10 oz soft pretzel, 4 oz cheese dip).
+
+    If you don't know this restaurant well enough, return an empty list.
     """
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        config=GenerateContentConfig(response_mime_type="application/json"),
+        config=GenerateContentConfig(response_mime_type="application/json", response_schema=list[RestaurantItems]),
         contents=prompt,
     )
-    try:
-        parsed = json.loads(response.text) if response.text else []
-    except Exception:
-        parsed = []
+    parsed = response.parsed if response.parsed else []
     if not isinstance(parsed, list):
         return json.dumps([])
 
-    analyzed_foods = analyze_ingredient(parsed)
+    # Convert structured Pydantic objects to the dict format analyze_ingredient expects.
+    # Ingredient strings become e.g. "6 oz Cheese, cheddar" — the USDA-formatted name
+    # flows directly into the USDA search query downstream.
+    legacy_items = []
+    for item in parsed:
+        ingredients = [f"{ing.quantity} {ing.unit} {ing.name}" for ing in item.ingredients]
+        legacy_items.append({"item": item.itemName, "ingredients": ingredients})
+
+    analyzed_foods = analyze_ingredient(legacy_items)
     item_names = [food.item for food in analyzed_foods]
 
     estimated_prices = {}
