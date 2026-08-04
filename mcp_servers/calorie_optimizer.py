@@ -89,7 +89,8 @@ def optimizer(
         "achieved_macros": {"cal" : actual_cal, "p": actual_p, "c": actual_c, "f": actual_f},
         "gaps": {"cal" : slack_cal.varValue, "p": slack_p.varValue, "c": slack_c.varValue, "f": slack_f.varValue},
         "order": final_order,
-        "restaurant": menu_items[0].get("restaurant", "Uploaded Menu")
+        "restaurant": menu_items[0].get("restaurant", "Uploaded Menu"),
+        "estimated": menu_items[0].get("estimated", False)
         
     }
 

@@ -68,7 +68,7 @@ function ResultCard({ result, index, onPress }) {
         <View className="result-meta">
             <Text>{restaurantName}</Text>
             <Text className="result-meta-sep">·</Text>
-            <Text>{status}</Text>
+            <Text style={{ color: result.estimated ? '#eab308' : '#22c55e', fontWeight: '500' }}>{result.estimated ? "Estimated" : "Verified"}</Text>
             <Text className="result-meta-sep">·</Text>
             <Text>💰 ${total_cost}</Text>
         </View>

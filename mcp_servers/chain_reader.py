@@ -42,7 +42,7 @@ class RestaurantItems(BaseModel):
 
 
 CACHE_TABLE = "menu_cache"
-CACHE_MAX_AGE_DAYS = 0  # set to 0 to force a re-fetch and cache update every time
+CACHE_MAX_AGE_DAYS = 1  # set to 0 to force a re-fetch and cache update every time
 
 def _cache_key(restaurant_name: str) -> str:
     """Normalize the name so 'Applebee's' and 'applebee's' hit the same row."""
