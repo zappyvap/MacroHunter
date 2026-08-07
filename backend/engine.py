@@ -1,12 +1,13 @@
 import base64
 from fastapi import FastAPI, Form, File, UploadFile
 from pydantic import BaseModel
-# import the langgraph agent from the other file
+# import the LangGraph state machine that orchestrates the full search/vision pipeline
 from graph import graph 
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+# allow all origins so the Expo frontend can call the API from any device on the local network
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

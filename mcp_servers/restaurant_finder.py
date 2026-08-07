@@ -63,12 +63,15 @@ def restaurant_finder(location_details : LocationDetails) -> list[dict]:
                 )
 
             # makes a new restaurant dictionary and adds it to the list of restaurants
+            location = place.get("geometry", {}).get("location", {})
             restaurants.append({
                 "name": place.get("name"),
                 "address": place.get("vicinity"),
                 "rating": place.get("rating"),
                 "total_ratings": place.get("user_ratings_total"),
                 "photo_url": photo_url,
+                "latitude": location.get("lat"),
+                "longitude": location.get("lng"),
             })
 
         # checks if there is a next page token for more results, and if so, waits the required time before making the next request

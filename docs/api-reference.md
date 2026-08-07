@@ -141,6 +141,8 @@ Translates a menu image into structured nutrition data.
 | `rating` | `float` | Google rating (1–5) |
 | `total_ratings` | `int` | Number of Google ratings |
 | `photo_url` | `string \| null` | Google Places photo URL |
+| `latitude` | `float` | Restaurant latitude coordinate |
+| `longitude` | `float` | Restaurant longitude coordinate |
 
 ### Order Item Object
 

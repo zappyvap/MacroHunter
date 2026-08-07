@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
+// shows the captured menu image with a loading spinner while the backend analyzes it
 export default function Scan() {
   const { imageUri } = useLocalSearchParams();
 

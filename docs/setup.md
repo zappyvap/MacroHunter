@@ -186,5 +186,16 @@ MacroHunter/
     ├── app.json
     ├── index.js
     └── src/
-        └── App.js                # Main UI (single-file app)
+        ├── App.js                # Web-only single-screen version (legacy)
+        ├── app/
+        │   ├── _layout.js        # Root layout (SearchProvider wrapper)
+        │   ├── index.js          # Home screen (macro inputs + search/scan)
+        │   ├── results.js        # Results screen (cards + lightbox)
+        │   └── scan.js           # Scanning screen (image preview)
+        ├── constants/
+        │   ├── colors.js         # Color palette
+        │   ├── component-style.js # className-to-style wrappers
+        │   └── styles.js         # StyleSheet definitions
+        └── context/
+            └── SearchContext.js   # Global search results state
 ```

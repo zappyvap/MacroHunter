@@ -10,7 +10,7 @@ langchain-core
 langchain-google-genai
 
 # Model Context Protocol (MCP)
-mcp
+mcp[cli]>=1.0,<2.0
 
 # Math & Optimization Engine
 pulp

@@ -527,4 +527,5 @@ def analyze_ingredient(food_items: list[dict]) -> list[FoodItem]:
 
 
 if __name__ == "__main__":
+    # quick test: analyze a cheeseburger to verify the ingredient parsing + USDA lookup pipeline
     print(analyze_ingredient([{"item": "Cheeseburger", "ingredients": ["6 oz ground beef patty", "1 slice of cheddar cheese","hamburger bun","1 large leaf of lettuce","2 slices of tomato","2 thin rings of onion","3 dill pickle slices","1 tbsp ketchup","1 tbsp mayonnaise","1 tsp mustard"]}]))

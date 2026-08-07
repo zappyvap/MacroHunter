@@ -1,5 +1,7 @@
 import { createContext, useContext, useState } from 'react';
 
+// holds the search/scan results in global state so index.js can set them
+// and results.js can read them without prop drilling across screens
 const SearchContext = createContext(null);
 
 export function SearchProvider({ children }) {

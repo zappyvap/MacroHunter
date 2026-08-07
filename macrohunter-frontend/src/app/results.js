@@ -26,6 +26,8 @@ function SkeletonCard() {
   );
 }
 function ResultCard({ result, index, onPress }) {
+    // scanned menu items don't go through the optimizer, so they have raw macro fields
+    // instead of the achieved_macros/gaps/order structure that optimized results have
     const isScannedItem = !result.achieved_macros;
 
     const achieved_macros = result.achieved_macros || {
@@ -131,6 +133,7 @@ function ResultTextel({ loading, results, onCardPress }) {
     </View>
   );
 }
+// opens the native maps app with directions to the restaurant's coordinates
 const openNavigation = (latitude, longitude, label = 'Destination') => {
   const scheme = Platform.select({
     ios: 'maps:0,0?q=',
@@ -142,7 +145,10 @@ const openNavigation = (latitude, longitude, label = 'Destination') => {
     ios: `${scheme}${label}@${latLng}`,
     android: `${scheme}${latLng}(${label})`,
   });
-
+  console.log(url)
+  console.log(latLng)
+  console.log(latitude)
+  console.log(longitude)
   Linking.openURL(url).catch(() => {
     Alert.alert('Error', 'Unable to open maps');
   });
@@ -268,6 +274,8 @@ function ResultLightbox({ result, onClose, topPick = false }) {
 }
 
 
+// ─── ResultsPage ─────────────────────────────────────────────────────────────
+// reads the search results from context and displays them as cards with a lightbox detail view
 export default function ResultsPage() {
     const { results } = useSearch();
     const [selectedResult, setSelectedResult] = useState(null);

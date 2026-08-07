@@ -18,6 +18,7 @@ export default function App() {
     </>
   );
 }
+// opens the device camera and captures a photo, then stores the URI in state
 async function takePicture(setImageUri) {
   const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
@@ -169,6 +170,7 @@ function HunterPage() {
 
   const handleTakePicture = () => takePicture(setImageUri);
   
+  // sends the captured menu image to the backend for Gemini vision analysis + optimization
   const scanMenu = async () => {
     const formData = new FormData();
     formData.append("file", {
@@ -198,6 +200,7 @@ function HunterPage() {
       setLoading(false);
     }
   };
+  // sends the user's macro targets + location to the backend and navigates to results
   const runSearch = async (lat, lng) => {
     setLoading(true);
     setResults(null);
@@ -222,6 +225,7 @@ function HunterPage() {
     }
   };
 
+  // asks for GPS permission via expo-location, then kicks off the search once we have coords
   const requestLocationThenSearch = async () => {
     setLocState("acquiring");
     setLocation({ name: "Requesting location…", coords: "Waiting for permission" });
@@ -323,7 +327,7 @@ function HunterPage() {
             </TouchableOpacity>
           </View>
         </View>
-        {/*//DID HAVE RESULTS CARD HERE USE RESULTSTEXTEL INSTEAD LATER*/}
+        {/* results are shown on the /results page via ResultTextel */}
       </SafeAreaView>
 
       {selected && (

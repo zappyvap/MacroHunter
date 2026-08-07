@@ -135,7 +135,7 @@ search_chain_restaurant(name)
 ```
 
 - **Cache key:** lowercase, trimmed restaurant name.
-- **Staleness:** controlled by `CACHE_MAX_AGE_DAYS` (currently set to 0, meaning always re-fetch).
+- **Staleness:** controlled by `CACHE_MAX_AGE_DAYS` (currently set to 1, meaning menus older than 1 day are re-fetched).
 - **Upsert:** uses Supabase `upsert` to insert or update.
 - **Failure tolerance:** cache read/write errors are caught and logged but never crash the pipeline.
 

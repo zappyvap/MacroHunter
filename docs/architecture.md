@@ -52,14 +52,12 @@ MacroHunter is a three-tier application built around an **AI-orchestrated agenti
 | `expo-image-picker` | Camera / gallery access for menu photos |
 | `react-native-web` | Web export for browser testing |
 
-The frontend is a **single-screen app** (`App.js`) with these logical sections:
+The frontend is a **multi-screen Expo Router app** with these key files:
 
-- **HunterPage** — root component holding all state
-- **CaloriesCard** — daily calorie target input
-- **MacrosCard** — protein / carbs / fats inputs with live bar chart
-- **LocationCard** — GPS status indicator
-- **ResultPanel** — skeleton loaders → result cards
-- **ResultLightbox** — expanded detail view with directions link
+- **`_layout.js`** — root layout wrapping all pages in `SearchProvider`
+- **`index.js`** — home screen with **HunterPage**, **CaloriesCard**, **MacrosCard**, **LocationCard**, and camera scan button
+- **`results.js`** — results screen with **ResultTextel** (result list), **ResultCard**, and **ResultLightbox** (detail view with directions)
+- **`scan.js`** — scanning screen showing the captured menu image with a loading spinner
 
 ### Backend Engine — `backend/`
 

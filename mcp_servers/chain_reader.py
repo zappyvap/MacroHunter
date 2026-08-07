@@ -48,6 +48,8 @@ def _cache_key(restaurant_name: str) -> str:
     """Normalize the name so 'Applebee's' and 'applebee's' hit the same row."""
     return restaurant_name.strip().lower()
 
+# normalizes all the different menu formats (from FatSecret, Gemini, or cache) into one consistent shape
+# so the optimizer always gets the same fields: name, calories, protein, carbs, fats, price, restaurant, estimated
 def _normalize_menu(menu: list, restaurant_name: str) -> list:
     normalized = []
     for item in menu:
@@ -139,8 +141,9 @@ def get_fatsecret_token():
     response.raise_for_status()
     return response.json().get("access_token")
 
-# this function is for when fatsecret doesn't have the restaurant info
-# we use Gemini to estimate the menu items and call the ingredient analyzer.
+# this function handles non-chain restaurants that FatSecret doesn't have nutrition data for.
+# we use Gemini to estimate the menu items and ingredients, then run them through
+# the ingredient analyzer to get real USDA-backed macros.
 def estimate_menu_via_ai(restaurant_name: str) -> str:
     prompt = f"""
     You are a nutrition database. For the restaurant "{restaurant_name}",

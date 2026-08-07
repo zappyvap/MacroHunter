@@ -50,11 +50,15 @@ export default function App() {
     </>
   );
 }
+// ─── ScoreTag ─────────────────────────────────────────────────────────────────
+// displays a colored match percentage badge (green ≥90%, yellow ≥75%, gray below)
 function ScoreTag({ score }) {
   const cls = score >= 90 ? "score-high" : score >= 75 ? "score-mid" : "score-low";
   return <Text className={`result-score ${cls}`}>{score}% Match</Text>;
 }
 
+// ─── MacroBar ─────────────────────────────────────────────────────────────────
+// a single horizontal progress bar showing one macro's value relative to the total
 function MacroBar({ label, value, max, color }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
@@ -67,6 +71,8 @@ function MacroBar({ label, value, max, color }) {
     </View>
   );
 }
+// ─── SkeletonCard ─────────────────────────────────────────────────────────────
+// placeholder loading card shown while results are being fetched
 function SkeletonCard() {
   return (
     <View className="skeleton-card">
@@ -208,6 +214,8 @@ function ResultLightbox({ result, onClose }) {
     </View>
   );
 }
+// ─── CaloriesCard ─────────────────────────────────────────────────────────────
+// input card for daily calorie target with a fill bar showing progress toward 3000kcal
 function CaloriesCard({ calories, setCalories }) {
   const pct = calories ? Math.min((+calories / 3000) * 100, 100) : 0;
   return (

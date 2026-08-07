@@ -148,7 +148,15 @@ MacroHunter/
 │   ├── restaurant_finder.py # Google Places search
 │   └── supabase_client.py   # Shared DB connection
 ├── macrohunter-frontend/    # Expo React Native app
-│   └── src/App.js           # Single-screen UI
+│   └── src/
+│       ├── App.js           # Web-only single-screen version (legacy)
+│       ├── app/
+│       │   ├── _layout.js   # Root layout (SearchProvider)
+│       │   ├── index.js     # Home screen (macro inputs + search/scan)
+│       │   ├── results.js   # Results screen (cards + lightbox)
+│       │   └── scan.js      # Scanning screen (image preview)
+│       ├── constants/       # Colors, styles, component wrappers
+│       └── context/         # SearchContext (global results state)
 ├── docs/                    # Documentation
 │   ├── architecture.md      # System design & component breakdown
 │   ├── workflows.md         # Detailed workflow diagrams

@@ -30,25 +30,25 @@ def optimizer(
     # makes the model
     prob = pulp.LpProblem("Best_Effort_Macro_Optimization", pulp.LpMinimize)
     
-    # this makes the decision variables, which is just the amount of each food
-    # basically it can only change the amount of items we buy not changing the actual menu
+    # this makes the decision variables, which is just the quantity of each food item
+    # basically it can only change the amount of items we buy, not changing the actual menu
     item_vars = pulp.LpVariable.dicts("Qty", [i["name"] for i in menu_items], lowBound=0, cat='Integer')
     
-    # this makes the varibles that measures the gap in the goal
+    # this makes the slack variables that measure the gap between what we achieve and the goal
     slack_p = pulp.LpVariable("Slack_Protein", lowBound=0)
     slack_c = pulp.LpVariable("Slack_Carbs", lowBound=0)
     slack_f = pulp.LpVariable("Slack_Fats", lowBound=0)
     slack_cal = pulp.LpVariable("Slack_Calories", lowBound=0)
 
     # the higher the penalty, the harder the solver tries to hit that specific target.
-    # this is just prioitizing protein and carbs more than fats
+    # this is just prioritizing protein and calories over carbs, and carbs over fats
     penalty_p = 10000  
     penalty_c = 8000   
     penalty_f = 5000    
     penalty_cal = 10000
 
     # this is the objective function
-    # it justs compares all the different combinations and sees which is the best
+    # it minimizes total cost + penalty-weighted slack, so the solver picks the cheapest order that still hits our macros
     prob += (
         pulp.lpSum([item["price"] * item_vars[item["name"]] for item in menu_items]) +
         (penalty_p * slack_p) + 
@@ -59,7 +59,7 @@ def optimizer(
 
     # this makes the constraints
     # "each macro must equal the total amount from our food plus the slack or greater"
-    # the calories have a strict less than restraint so you can't go over your calorie goal to hit you macros
+    # the calories have a strict less-than constraint so you can't go over your calorie goal to hit your macros
     prob += pulp.lpSum([i["protein"] * item_vars[i["name"]] for i in menu_items]) + slack_p >= target_protein
     prob += pulp.lpSum([i["carbs"] * item_vars[i["name"]] for i in menu_items]) + slack_c >= target_carbs
     prob += pulp.lpSum([i["fats"] * item_vars[i["name"]] for i in menu_items]) + slack_f >= target_fats

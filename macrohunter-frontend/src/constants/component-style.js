@@ -1,3 +1,6 @@
+// wrapper components that let us use className strings (like "result-card")
+// instead of passing style objects everywhere. getStyleFromClassName splits the
+// className string and maps each name to its matching entry in styles.js.
 import {
   Image as RNImage,
   SafeAreaView as RNSafeAreaView,

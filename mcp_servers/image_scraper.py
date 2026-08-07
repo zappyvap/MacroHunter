@@ -84,7 +84,8 @@ async def translate_menu(file: UploadFile = File(...)):
     # Format for the frontend
     results = []
     
-    # We need to map the analyzed foods back to their original parsed items to grab the extracted price
+    # maps each item name back to the price Gemini extracted from the menu image,
+    # so we can attach the correct price to each analyzed food item
     price_map = {item.itemName: item.price for item in parsed}
     
     for food in analyzed_foods:
