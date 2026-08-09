@@ -190,11 +190,18 @@ function HunterPage() {
         method: "POST",
         body: formData,
       });
+      if (!res.ok) {
+        const errorData = await res.json();
+        const errorMsg = Array.isArray(errorData.detail) ? errorData.detail[0].msg : (errorData.detail || "Server returned an error");
+        throw new Error(errorMsg);
+      }
+
       const data = await res.json();
       setResults(data.results);
       router.push('/results')
     } catch (err) {
       console.error("Search failed:", err);
+      Alert.alert("Error", err.message);
       setResults(null);
     } finally {
       setLoading(false);
@@ -214,11 +221,18 @@ function HunterPage() {
       const res  = await fetch("http://10.0.0.233:8000/api/optimize-meal", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
+      if (!res.ok) {
+        const errorData = await res.json();
+        const errorMsg = Array.isArray(errorData.detail) ? errorData.detail[0].msg : (errorData.detail || "Server returned an error");
+        throw new Error(errorMsg);
+      }
+
       const data = await res.json();
       setResults(data.results);
       router.push('/results')
     } catch (err) {
       console.error("Search failed:", err);
+      Alert.alert("Error", err.message);
       setResults(null);
     } finally {
       setLoading(false);

@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 import base64
 from fastapi import FastAPI, Form, File, UploadFile
 from pydantic import BaseModel
@@ -38,10 +39,16 @@ def run_macro_hunter(request: UserRequest):
         "current_restaurant_index": 0,
         "image_b64" : None
     }
-    final_state = graph.invoke(initial_state)
-    print("final_state keys:", final_state.keys())
-    print("final_orders:", final_state.get("final_orders"))
-    print("best_orders:", final_state.get("best_orders"))
+    try:
+        final_state = graph.invoke(initial_state)
+    except Exception as e:
+        # Catch any unexpected crashes in the graph and return a 500
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while searching. Please try again.")
+        
+    # If the graph runs successfully but finds no meals, raise a 404
+    if not final_state.get("final_orders"):
+        raise HTTPException(status_code=404, detail="No meals matching your macros were found near you. Try a different area or broader targets.")
+        
     # return optimized meal plan to frontend
     return {
         "status": "success",
@@ -57,6 +64,12 @@ async def run_macro_hunter_image(
     target_fats: float = Form(...),
     file: UploadFile = File(...)
 ):
+    if not target_calories or not target_protein or not target_carbs or not target_fats:
+        raise HTTPException(status_code=400, detail="Target macronutrients not set")
+    
+    if not file:
+        raise HTTPException(status_code=400, detail="File not found")
+        
     image_bytes = await file.read()
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')
     
@@ -72,10 +85,14 @@ async def run_macro_hunter_image(
         "image_b64" : image_b64
     }
     
-    final_state = graph.invoke(initial_state)
-    print("final_state keys:", final_state.keys())
-    print("final_orders:", final_state.get("final_orders"))
-    print("best_orders:", final_state.get("best_orders"))
+    try:
+        final_state = graph.invoke(initial_state)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while scanning the menu. Please try again.")
+        
+    if not final_state.get("final_orders"):
+        raise HTTPException(status_code=404, detail="No meals matching your macros were found on this menu.")
+        
     return {
         "status": "success",
         "results": final_state["final_orders"] 
