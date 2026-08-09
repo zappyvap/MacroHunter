@@ -9,6 +9,71 @@ import {router, useLocalSearchParams} from "expo-router";
 import styles from '../constants/styles';
 import * as ImagePicker from 'expo-image-picker';
 
+// ─── Mock Data for Debug Mode ────────────────────────────────────────────────
+const MOCK_RESULTS = [
+  {
+    status: "Optimal",
+    total_cost: 12.49,
+    achieved_macros: { cal: 520, p: 42, c: 35, f: 18 },
+    gaps: { cal: 0, p: 0, c: 3, f: 2 },
+    order: [
+      { item: "Grilled Chicken Sandwich", quantity: 1, estimated: false },
+      { item: "Side Salad", quantity: 1, estimated: false },
+    ],
+    restaurant: {
+      name: "Mock Grill House",
+      address: "123 Debug St",
+      rating: 4.5,
+      total_ratings: 312,
+      photo_url: null,
+      latitude: 40.7128,
+      longitude: -74.0060,
+    },
+    estimated: false,
+  },
+  {
+    status: "Best Effort",
+    total_cost: 9.99,
+    achieved_macros: { cal: 480, p: 35, c: 45, f: 15 },
+    gaps: { cal: 0, p: 5, c: 0, f: 5 },
+    order: [
+      { item: "Turkey Wrap", quantity: 1, estimated: true },
+      { item: "Protein Shake", quantity: 1, estimated: true },
+    ],
+    restaurant: {
+      name: "Mock Deli",
+      address: "456 Test Ave",
+      rating: 4.2,
+      total_ratings: 189,
+      photo_url: null,
+      latitude: 40.7580,
+      longitude: -73.9855,
+    },
+    estimated: true,
+  },
+  {
+    status: "Best Effort",
+    total_cost: 15.75,
+    achieved_macros: { cal: 610, p: 50, c: 40, f: 22 },
+    gaps: { cal: 0, p: 0, c: 8, f: 0 },
+    order: [
+      { item: "Double Burger (no bun)", quantity: 1, estimated: false },
+      { item: "Sweet Potato Fries", quantity: 1, estimated: false },
+      { item: "Water", quantity: 1, estimated: false },
+    ],
+    restaurant: {
+      name: "Mock Burger Joint",
+      address: "789 Fake Blvd",
+      rating: 4.7,
+      total_ratings: 524,
+      photo_url: null,
+      latitude: 40.7484,
+      longitude: -73.9857,
+    },
+    estimated: false,
+  },
+];
+
 
 export default function App() {
   return (
@@ -343,6 +408,58 @@ function HunterPage() {
         </View>
         {/* results are shown on the /results page via ResultTextel */}
       </SafeAreaView>
+
+      {/* ─── Debug Panel (dev only) ──────────────────────────────────── */}
+      {__DEV__ && (
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          borderTopWidth: 1,
+          borderTopColor: '#333',
+        }}>
+          <Text style={{ color: '#f97316', fontWeight: '700', fontSize: 11, letterSpacing: 1 }}>🛠 DEBUG</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setResults(MOCK_RESULTS);
+              router.push('/results');
+            }}
+            activeOpacity={0.7}
+            style={{
+              backgroundColor: '#22c55e',
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Results</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              router.push({
+                pathname: '/scan',
+                params: { imageUri: 'https://placehold.co/400x600/1e293b/white?text=Mock+Menu' }
+              });
+            }}
+            activeOpacity={0.7}
+            style={{
+              backgroundColor: '#3b82f6',
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Scan</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {selected && (
         <ResultLightbox result={selected} onClose={() => setSelected(null)} />
