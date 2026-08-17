@@ -1,13 +1,16 @@
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, TextInput, TouchableOpacity, Image, SafeAreaView } from '../constants/component-style';
 import { useState, useEffect } from "react";
-import { Alert } from 'react-native';
+import React from 'react';
+import { Alert, StyleSheet, View as RNView, Animated, Easing } from 'react-native';
 import { Link } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSearch } from '../context/SearchContext';
 import {router, useLocalSearchParams} from "expo-router";
 import styles from '../constants/styles';
 import * as ImagePicker from 'expo-image-picker';
+import EventSource from 'react-native-sse';
+import colors from '../constants/colors';
 
 // ─── Mock Data for Debug Mode ────────────────────────────────────────────────
 const MOCK_RESULTS = [
@@ -97,11 +100,12 @@ async function takePicture(setImageUri) {
     allowsEditing: false,
     aspect: [4, 3],
     quality: 0.8,
+    base64: true,
   });
 
   if (!result.canceled) {
-    const capturedUri = result.assets[0].uri;
-    setImageUri(capturedUri);
+    const asset = result.assets[0];
+    setImageUri({ uri: asset.uri, base64: asset.base64 });
   }
 }
 function ScoreTag({ score }) {
@@ -208,6 +212,197 @@ function LocationCard({ locState, location }) {
 }
 
 
+
+// ─── BasicLoadingScreen ────────────────────────────────────────────────────────
+
+const STEPS = [
+  "🔍 Scanning nearby restaurants...",
+  "🧬 Analyzing macronutrient data...",
+  "⚡ Calculating optimal meals...",
+  "🏆 Ranking your best options...",
+];
+
+function BasicLoadingScreen({ headline }) {
+  // Spinner rotation
+  const spinAnim   = React.useRef(new Animated.Value(0)).current;
+  // Radar ring pulses (3 rings, staggered)
+  const pulse1     = React.useRef(new Animated.Value(0)).current;
+  const pulse2     = React.useRef(new Animated.Value(0)).current;
+  const pulse3     = React.useRef(new Animated.Value(0)).current;
+  // Dot bounce
+  const dot1       = React.useRef(new Animated.Value(0)).current;
+  const dot2       = React.useRef(new Animated.Value(0)).current;
+  const dot3       = React.useRef(new Animated.Value(0)).current;
+  // Text fade
+  const textOpacity = React.useRef(new Animated.Value(0)).current;
+  const [displayedHeadline, setDisplayedHeadline] = React.useState(headline || STEPS[0]);
+
+  // Fade-in text whenever headline changes
+  React.useEffect(() => {
+    textOpacity.setValue(0);
+    setDisplayedHeadline(headline || STEPS[0]);
+    Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [headline]);
+
+  React.useEffect(() => {
+    // Spinner
+    Animated.loop(
+      Animated.timing(spinAnim, { toValue: 1, duration: 1800, easing: Easing.linear, useNativeDriver: true })
+    ).start();
+
+    // Radar pulse rings (staggered)
+    const makePulse = (anim, delay) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, { toValue: 1, duration: 1800, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ])
+      );
+    makePulse(pulse1, 0).start();
+    makePulse(pulse2, 600).start();
+    makePulse(pulse3, 1200).start();
+
+    // Dots bounce
+    const makeDot = (anim, delay) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, { toValue: -8, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0,  duration: 300, easing: Easing.in(Easing.quad),  useNativeDriver: true }),
+          Animated.delay(900),
+        ])
+      );
+    makeDot(dot1, 0).start();
+    makeDot(dot2, 150).start();
+    makeDot(dot3, 300).start();
+  }, []);
+
+  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  const makePulseStyle = (anim) => ({
+    opacity:   anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.6, 0] }),
+    transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.6] }) }],
+  });
+
+  return (
+    <RNView style={loadingStyles.container}>
+      {/* Radar pulse rings */}
+      <RNView style={loadingStyles.radarWrap}>
+        {[pulse1, pulse2, pulse3].map((p, i) => (
+          <Animated.View key={i} style={[loadingStyles.radarRing, makePulseStyle(p)]} />
+        ))}
+
+        {/* Spinning arc border */}
+        <Animated.View style={[loadingStyles.spinnerRing, { transform: [{ rotate: spin }] }]}>
+          <RNView style={loadingStyles.spinnerArc} />
+        </Animated.View>
+
+        {/* Centre icon */}
+        <RNView style={loadingStyles.centreDot}>
+          <Text style={loadingStyles.centreEmoji}>🎯</Text>
+        </RNView>
+      </RNView>
+
+      {/* Headline */}
+      <Animated.Text style={[loadingStyles.headline, { opacity: textOpacity }]}>
+        {displayedHeadline}
+      </Animated.Text>
+
+      {/* Bouncing dots */}
+      <RNView style={loadingStyles.dotsRow}>
+        {[dot1, dot2, dot3].map((d, i) => (
+          <Animated.View key={i} style={[loadingStyles.dot, { transform: [{ translateY: d }] }]} />
+        ))}
+      </RNView>
+
+      <Text style={loadingStyles.subText}>MacroHunter is on the hunt…</Text>
+    </RNView>
+  );
+}
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.bg,
+    padding: 32,
+  },
+  radarWrap: {
+    width: 180,
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  radarRing: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+  },
+  spinnerRing: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  spinnerArc: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    borderTopColor: colors.accent,
+    borderRightColor: colors.accentGlow,
+  },
+  centreDot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centreEmoji: {
+    fontSize: 28,
+  },
+  headline: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 26,
+    letterSpacing: 0.3,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+  },
+  subText: {
+    color: colors.muted,
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+});
+
+
+
 // ─── HunterPage ───────────────────────────────────────────────────────────────
 function HunterPage() {
   const [calories, setCalories] = useState("");
@@ -217,16 +412,25 @@ function HunterPage() {
   const [locState, setLocState] = useState("idle");
   const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
   const [loading,  setLoading]  = useState(false);
-  const {results,  setResults} = useSearch();
+  const {results, setResults, setScanPayload} = useSearch();
   const [selected, setSelected] = useState(null);
   const [imageUri, setImageUri] = useState(null); 
+  const [streamedText, setStreamedText] = useState("")
 
   useEffect(() => {
     if(imageUri) {
-      scanMenu(imageUri);
+      setScanPayload({
+        imageB64: imageUri.base64,
+        calories,
+        protein,
+        carbs,
+        fats
+      });
       router.push({
         pathname: '/scan',
-        params: { imageUri }
+        params: { 
+          imageUri: imageUri.uri,
+        }
       })
     }
   }, [imageUri]);
@@ -235,47 +439,12 @@ function HunterPage() {
 
   const handleTakePicture = () => takePicture(setImageUri);
   
-  // sends the captured menu image to the backend for Gemini vision analysis + optimization
-  const scanMenu = async () => {
-    const formData = new FormData();
-    formData.append("file", {
-      uri: imageUri,
-      name: "menu.jpg",
-      type: "image/jpeg",
-    });
-    formData.append("target_calories", +calories);
-    formData.append("target_protein", +protein);
-    formData.append("target_carbs", +carbs);
-    formData.append("target_fats", +fats);
 
-    setLoading(true);
-    setResults(null);
-    try {
-      const res  = await fetch("http://10.0.0.233:8000/api/optimize-menu-image", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        const errorMsg = Array.isArray(errorData.detail) ? errorData.detail[0].msg : (errorData.detail || "Server returned an error");
-        throw new Error(errorMsg);
-      }
-
-      const data = await res.json();
-      setResults(data.results);
-      router.push('/results')
-    } catch (err) {
-      console.error("Search failed:", err);
-      Alert.alert("Error", err.message);
-      setResults(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // sends the user's macro targets + location to the backend and navigates to results
+  // sends the user's macro targets + location to the backend via SSE streaming and navigates to results
   const runSearch = async (lat, lng) => {
     setLoading(true);
     setResults(null);
+    setStreamedText("");
     const payload = {
       searching_for_restaurant: true,
       latitude: lat, longitude: lng,
@@ -283,18 +452,48 @@ function HunterPage() {
       target_carbs: +carbs, target_fats: +fats,
     };
     try {
-      const res  = await fetch("http://10.0.0.233:8000/api/optimize-meal", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        const errorMsg = Array.isArray(errorData.detail) ? errorData.detail[0].msg : (errorData.detail || "Server returned an error");
-        throw new Error(errorMsg);
-      }
+      await new Promise((resolve, reject) => {
+        const es = new EventSource("http://10.0.0.233:8000/api/optimize-meal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      const data = await res.json();
-      setResults(data.results);
-      router.push('/results')
+        es.addEventListener("agent_update", (e) => {
+          try {
+            const parsed = JSON.parse(e.data);
+            setStreamedText(parsed.headline || "");
+          } catch {}
+        });
+
+        es.addEventListener("done", (e) => {
+          try {
+            const parsed = JSON.parse(e.data);
+            setResults(parsed.results);
+            es.close();
+            resolve();
+            router.push('/results');
+          } catch (err) {
+            es.close();
+            reject(err);
+          }
+        });
+
+        es.addEventListener("error", (e) => {
+          es.close();
+          // e.data is set on application-level error events from the server
+          if (e.data) {
+            try {
+              const parsed = JSON.parse(e.data);
+              reject(new Error(parsed.detail || "Stream error"));
+            } catch {
+              reject(new Error("Stream error"));
+            }
+          } else {
+            reject(new Error("Connection error"));
+          }
+        });
+      });
     } catch (err) {
       console.error("Search failed:", err);
       Alert.alert("Error", err.message);
@@ -458,11 +657,32 @@ function HunterPage() {
           >
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Scan</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setLoading(true);
+              // Auto-dismiss after 5 seconds so you don't get stuck!
+              setTimeout(() => setLoading(false), 5000);
+            }}
+            activeOpacity={0.7}
+            style={{
+              backgroundColor: '#a855f7', // Purple for the loading debug button
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Load</Text>
+          </TouchableOpacity>
         </View>
       )}
 
       {selected && (
         <ResultLightbox result={selected} onClose={() => setSelected(null)} />
+      )}
+      {loading && (
+        <RNView style={[StyleSheet.absoluteFillObject, { zIndex: 1000, backgroundColor: '#0a0a0a' }]}>
+          <BasicLoadingScreen headline={streamedText} />
+        </RNView>
       )}
     </>
   );
