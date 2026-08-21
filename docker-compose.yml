@@ -36,13 +36,16 @@ services:
     tty: true
     stdin_open: true
     environment:
-      # CRITICAL: Replace with your actual local machine's IP address (e.g., 192.168.1.5)
-      - REACT_NATIVE_PACKAGER_HOSTNAME=10.0.0.233
+      # Reads from .env (HOST_IP) or falls back to 10.0.0.241
+      - REACT_NATIVE_PACKAGER_HOSTNAME=${HOST_IP:-10.0.0.241}
+      - EXPO_PUBLIC_HOST_IP=${HOST_IP:-10.0.0.241}
       # Enables polling so file changes on the host sync inside the container for Fast Refresh
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
       - ./macrohunter-frontend:/app
       - /app/node_modules
+    env_file:
+      - .env
 
     

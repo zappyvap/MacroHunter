@@ -452,8 +452,9 @@ function HunterPage() {
       target_carbs: +carbs, target_fats: +fats,
     };
     try {
+      const hostIp = process.env.EXPO_PUBLIC_HOST_IP || '10.0.0.241';
       await new Promise((resolve, reject) => {
-        const es = new EventSource("http://10.0.0.233:8000/api/optimize-meal", {
+        const es = new EventSource(`http://${hostIp}:8000/api/optimize-meal`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

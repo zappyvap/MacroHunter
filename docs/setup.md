@@ -30,6 +30,10 @@ USDA_API_KEY="your_usda_api_key"
 # Supabase (menu caching)
 SUPABASE_URL="https://your-project.supabase.co"
 SUPABASE_KEY="your_supabase_key"
+
+# Local Machine IP (for mobile Expo Go testing)
+HOST_IP="10.0.0.241"
+EXPO_PUBLIC_HOST_IP="10.0.0.241"
 ```
 
 ### Where to Get API Keys
