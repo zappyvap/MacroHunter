@@ -12,8 +12,10 @@ MacroHunter is a decision support system that solves daily nutrition mathematica
 2. **Choose your input method:**
    - 📍 **Search nearby** — GPS finds restaurants around you
    - 📸 **Scan a menu** — Take a photo of a physical menu
-3. **Get optimized orders** — PuLP linear programming finds the cheapest combination of items that hits your macros
-4. **Compare results** — Orders are ranked by macro accuracy and cost across multiple restaurants
+3. **Watch real-time progress** — SSE streaming shows animated step-by-step updates as the AI pipeline runs
+4. **Get optimized orders** — PuLP linear programming finds the cheapest combination of items that hits your macros
+5. **Compare results** — Orders are ranked by macro accuracy and cost, viewable as cards with a swipeable lightbox detail view
+6. **Get directions** — Tap to open native maps with directions to any restaurant
 
 ---
 
@@ -22,7 +24,8 @@ MacroHunter is a decision support system that solves daily nutrition mathematica
 | Layer              | Technology                                     |
 | ------------------ | ---------------------------------------------- |
 | **Frontend**       | React Native + Expo SDK 54 (iOS, Android, Web) |
-| **Backend**        | FastAPI + LangGraph (agentic state machine)    |
+| **Backend**        | FastAPI + LangGraph (agentic state machine)     |
+| **Streaming**      | Server-Sent Events (SSE) for real-time updates  |
 | **AI**             | Gemini 2.5 Flash (vision + text)               |
 | **Optimization**   | PuLP (CBC linear programming solver)           |
 | **Nutrition Data** | FatSecret API, USDA FoodData Central           |
@@ -46,6 +49,7 @@ START → find_restaurants → fan_out (parallel) → fetch_and_optimize × N �
 - Finds nearby restaurants via Google Places
 - Fetches menus from FatSecret (known chains) or Gemini AI estimation (local restaurants)
 - Runs the PuLP solver in parallel for each restaurant
+- Streams real-time progress updates to the frontend via SSE
 - Ranks all results by macro accuracy and cost
 
 ### Vision Path (Menu Scan)
@@ -57,6 +61,7 @@ START → image_translation → optimize_calories → judge → END
 - Sends menu photo to Gemini Vision for item + ingredient extraction
 - Calculates macros via USDA FoodData Central
 - Runs the PuLP solver up to 3 times to generate diverse order options
+- Streams scanning progress to a dedicated animated scan screen
 
 ---
 
@@ -108,10 +113,13 @@ npx expo start --web
 
 ## API Endpoints
 
-| Method | Endpoint                   | Description                            |
-| ------ | -------------------------- | -------------------------------------- |
-| `POST` | `/api/optimize-meal`       | Search nearby restaurants and optimize |
-| `POST` | `/api/optimize-menu-image` | Upload menu photo and optimize         |
+All endpoints use **Server-Sent Events (SSE)** for real-time streaming. The frontend receives `agent_update` events during processing and a final `done` event with results.
+
+| Method | Endpoint                          | Description                                          |
+| ------ | --------------------------------- | ---------------------------------------------------- |
+| `POST` | `/api/optimize-meal`              | Search nearby restaurants and optimize (SSE stream)   |
+| `POST` | `/api/optimize-menu-image-stream` | Upload menu photo as base64 JSON and optimize (SSE)   |
+| `POST` | `/api/optimize-menu-image`        | Upload menu photo as multipart form-data (SSE, legacy)|
 
 > See [docs/api-reference.md](docs/api-reference.md) for full request/response schemas.
 
@@ -128,6 +136,8 @@ npx expo start --web
 | `USDA_API_KEY`            | Ingredient Analyzer   | USDA FoodData Central key     |
 | `SUPABASE_URL`            | Supabase Client       | Supabase project URL          |
 | `SUPABASE_KEY`            | Supabase Client       | Supabase API key              |
+| `HOST_IP`                 | Docker Compose        | Local machine IP for Expo Go  |
+| `EXPO_PUBLIC_HOST_IP`     | Frontend              | Backend IP for mobile testing  |
 
 ---
 
@@ -136,27 +146,26 @@ npx expo start --web
 ```
 MacroHunter/
 ├── backend/                 # FastAPI + LangGraph orchestration
-│   ├── engine.py            # API endpoints
+│   ├── engine.py            # API endpoints (SSE streaming)
 │   ├── graph.py             # Agentic state machine
 │   └── tests/               # Pytest test suite
 ├── mcp_servers/             # MCP tool modules
 │   ├── calorie_optimizer.py # PuLP linear programming solver
 │   ├── chain_reader.py      # FatSecret + Gemini menu fetch
-│   ├── image_scraper.py     # Gemini Vision menu scanner
+│   ├── image_scraper.py     # Gemini Vision menu scanner (FastAPI)
 │   ├── ingredient_analyzer.py # USDA macro calculator
 │   ├── judge.py             # Result ranking
 │   ├── restaurant_finder.py # Google Places search
 │   └── supabase_client.py   # Shared DB connection
 ├── macrohunter-frontend/    # Expo React Native app
 │   └── src/
-│       ├── App.js           # Web-only single-screen version (legacy)
 │       ├── app/
 │       │   ├── _layout.js   # Root layout (SearchProvider)
 │       │   ├── index.js     # Home screen (macro inputs + search/scan)
-│       │   ├── results.js   # Results screen (cards + lightbox)
-│       │   └── scan.js      # Scanning screen (image preview)
+│       │   ├── results.js   # Results screen (cards + swipeable lightbox)
+│       │   └── scan.js      # Scanning screen (animated scan overlay)
 │       ├── constants/       # Colors, styles, component wrappers
-│       └── context/         # SearchContext (global results state)
+│       └── context/         # SearchContext (global results + scan payload)
 ├── docs/                    # Documentation
 │   ├── architecture.md      # System design & component breakdown
 │   ├── workflows.md         # Detailed workflow diagrams
@@ -167,14 +176,32 @@ MacroHunter/
 
 ---
 
+## Frontend Features
+
+| Feature | Description |
+|---|---|
+| **Macro Input Forms** | CaloriesCard with visual progress bar, MacrosCard with color-coded macro bars |
+| **GPS Location** | Auto-detects location with permission handling and status display |
+| **Camera Integration** | Captures menu photos via `expo-image-picker` with base64 encoding |
+| **SSE Streaming** | Real-time backend progress updates via EventSource (react-native-sse) |
+| **Animated Loading** | Radar pulse, spinning arc, bouncing dots, and fading text during search |
+| **Animated Scan Screen** | Scan-line sweep, glowing border, corner accents over captured menu image |
+| **Result Cards** | Score percentage, macro breakdown, cost, estimated vs. verified badge |
+| **Swipeable Lightbox** | PanResponder-driven vertical swipe to navigate between result details |
+| **Native Maps Directions** | Opens Apple Maps / Google Maps with restaurant coordinates |
+| **Top Pick Badge** | Highlights the best-matching optimal result |
+| **Debug Panel** | Dev-only toolbar with shortcuts to mock results, scan, and loading screens |
+
+---
+
 ## Documentation
 
-| Document                               | Description                                                          |
-| -------------------------------------- | -------------------------------------------------------------------- |
-| [Architecture](docs/architecture.md)   | System design, component breakdown, state schema, external APIs      |
-| [Workflows](docs/workflows.md)         | Search & Vision path diagrams, caching, ingredient analysis, LP math |
-| [API Reference](docs/api-reference.md) | Endpoint specs, request/response schemas                             |
-| [Setup Guide](docs/setup.md)           | Environment setup, Docker & local development, running tests         |
+| Document                               | Description                                                                  |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| [Architecture](docs/architecture.md)   | System design, component breakdown, state schema, external APIs              |
+| [Workflows](docs/workflows.md)         | Search & Vision path diagrams, caching, ingredient analysis, LP math         |
+| [API Reference](docs/api-reference.md) | Endpoint specs, SSE event schemas, request/response formats                  |
+| [Setup Guide](docs/setup.md)           | Environment setup, Docker & local development, running tests                 |
 
 ---
 

@@ -10,16 +10,19 @@ MacroHunter is a three-tier application built around an **AI-orchestrated agenti
 │  Port 8081                                                      │
 │  - Macro input forms          - Result cards + lightbox         │
 │  - Camera upload              - GPS location                    │
-│  - Google Maps directions                                       │
+│  - SSE progress streaming     - Animated loading screens        │
+│  - Native maps directions     - Swipeable result detail         │
 └────────────────────┬────────────────────────────────────────────┘
-                     │  HTTP (JSON / multipart)
+                     │  SSE (Server-Sent Events)
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Backend Engine (FastAPI + LangGraph)                            │
 │  Port 8000                                                      │
-│  - POST /api/optimize-meal        (search path)                 │
-│  - POST /api/optimize-menu-image  (vision path)                 │
+│  - POST /api/optimize-meal              (search path, SSE)      │
+│  - POST /api/optimize-menu-image-stream (vision path, SSE)      │
+│  - POST /api/optimize-menu-image        (vision path, SSE legacy)│
 │  - Invokes LangGraph state machine (graph.py)                   │
+│  - Streams node-by-node progress via agent_update events        │
 └────────┬────────────┬───────────────────────────────────────────┘
          │            │
          ▼            ▼
@@ -50,23 +53,56 @@ MacroHunter is a three-tier application built around an **AI-orchestrated agenti
 | React Native + Expo SDK 54 | Cross-platform UI (iOS, Android, Web) |
 | `expo-location` | Device GPS coordinates |
 | `expo-image-picker` | Camera / gallery access for menu photos |
+| `react-native-sse` | EventSource polyfill for SSE streaming |
 | `react-native-web` | Web export for browser testing |
+| `react-native-svg` | SVG rendering for lightbox close button |
 
 The frontend is a **multi-screen Expo Router app** with these key files:
 
 - **`_layout.js`** — root layout wrapping all pages in `SearchProvider`
-- **`index.js`** — home screen with **HunterPage**, **CaloriesCard**, **MacrosCard**, **LocationCard**, and camera scan button
-- **`results.js`** — results screen with **ResultTextel** (result list), **ResultCard**, and **ResultLightbox** (detail view with directions)
-- **`scan.js`** — scanning screen showing the captured menu image with a loading spinner
+- **`index.js`** — home screen with **HunterPage**, **CaloriesCard**, **MacrosCard**, **LocationCard**, camera scan button, SSE search streaming, and animated loading screen (radar pulse + spinning arc + bouncing dots)
+- **`results.js`** — results screen with **ResultTextel** (result list), **ResultCard** (score percentage, macro breakdown, cost, verified/estimated badge), **ResultLightbox** (swipeable detail view with PanResponder, restaurant photo, native maps directions, match score chip)
+- **`scan.js`** — scanning screen showing the captured menu image with animated scan-line sweep, glowing border, corner accent marks, and SSE progress text from the backend
+
+#### Key Frontend Components
+
+| Component | File | Description |
+|---|---|---|
+| `CaloriesCard` | `index.js` | Calorie input with visual progress bar (0–3000 scale) |
+| `MacrosCard` | `index.js` | Protein/carbs/fats inputs with color-coded proportion bars |
+| `LocationCard` | `index.js` | GPS status display (idle → acquiring → ready / denied) |
+| `BasicLoadingScreen` | `index.js` | Animated radar pulse, spinning arc, bouncing dots, fading headline |
+| `ResultCard` | `results.js` | Summary card: dish name, restaurant, macros, cost, score tag |
+| `ResultLightbox` | `results.js` | Full detail modal: photo, macros, price, directions button, swipe navigation |
+| `Scan` | `scan.js` | Menu image with scan-line animation and SSE progress updates |
+| `SearchProvider` | `SearchContext.js` | Global state for results and scan payload across screens |
+
+#### Debug Panel
+
+In development mode (`__DEV__`), a toolbar appears at the bottom of the home screen with shortcuts to:
+- **→ Results** — inject mock data and navigate to the results screen
+- **→ Scan** — open the scan screen with a placeholder image
+- **→ Load** — trigger the loading screen animation (auto-dismisses after 5s)
 
 ### Backend Engine — `backend/`
 
 | File | Role |
 |---|---|
-| `engine.py` | FastAPI app with two endpoints and CORS middleware |
-| `graph.py` | LangGraph `StateGraph` defining the agentic workflow |
+| `engine.py` | FastAPI app with three endpoints, CORS middleware, SSE streaming helpers, and node-to-UI message translations |
+| `graph.py` | LangGraph `StateGraph` defining the agentic workflow with conditional routing and parallel fan-out |
 
-The engine is the **orchestration layer**. It accepts user requests, builds an initial `State` dict, invokes the compiled LangGraph, and returns the `final_orders` to the frontend.
+The engine is the **orchestration layer**. It accepts user requests, builds an initial `State` dict, invokes the compiled LangGraph via `astream()`, translates each node's output into user-facing progress messages, and streams them as SSE events. The final `done` event includes the `final_orders` array.
+
+#### SSE Streaming Architecture
+
+Both `stream_helper()` and `image_stream_helper()` follow the same pattern:
+
+1. Yield an immediate `agent_update` event so the UI updates instantly
+2. Iterate over `graph.astream(state, stream_mode="updates")`
+3. Translate each node's output via `NODE_TRANSLATIONS` dict
+4. Yield `agent_update` events with `headline` and `detail` text
+5. Yield a final `done` event with the `results` array
+6. On exception, yield an `error` event
 
 ### MCP Tool Servers — `mcp_servers/`
 
@@ -93,6 +129,11 @@ Three Docker services:
 | `expo-app` | `./macrohunter-frontend` | 8081 | Expo dev server |
 
 The `engine` service mounts `./mcp_servers` at `/app/mcp_servers` so the backend can import the tools directly.
+
+The `expo-app` service uses environment variables for network configuration:
+- `REACT_NATIVE_PACKAGER_HOSTNAME` — set to `HOST_IP` for physical device testing
+- `EXPO_PUBLIC_HOST_IP` — backend URL used by the frontend's SSE connections
+- `CHOKIDAR_USEPOLLING` / `WATCHPACK_POLLING` — enables file-change detection inside Docker for hot reload
 
 ---
 

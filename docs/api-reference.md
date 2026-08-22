@@ -1,14 +1,67 @@
 # API Reference
 
-MacroHunter exposes two backend services over HTTP.
+MacroHunter exposes two backend services over HTTP. All backend engine endpoints use **Server-Sent Events (SSE)** for real-time streaming — responses are delivered as a stream of named events, not a single JSON body.
 
 ---
 
 ## Backend Engine (Port 8000)
 
+### SSE Event Format
+
+All endpoints below return `text/event-stream` responses. The frontend receives three types of events:
+
+| Event | Description |
+|---|---|
+| `agent_update` | Progress update during pipeline execution |
+| `done` | Final results payload — pipeline completed successfully |
+| `error` | Error details — pipeline failed |
+
+#### `agent_update` Event Data
+
+```json
+{
+  "status": "processing",
+  "headline": "🔍 Scanning menus at nearby restaurants...",
+  "detail": "Found 3 restaurants to evaluate."
+}
+```
+
+#### `done` Event Data
+
+```json
+{
+  "status": "done",
+  "headline": "Adding final touches...",
+  "detail": "Sorting by price...",
+  "results": [ /* array of Order Result Objects */ ]
+}
+```
+
+#### `error` Event Data
+
+```json
+{
+  "detail": "Error description string"
+}
+```
+
+### Node-to-UI Message Translations
+
+The backend translates internal graph node names into user-facing messages:
+
+| Node | Headline |
+|---|---|
+| `find_restaurants` | 🔍 Scanning menus at nearby restaurants... |
+| `fetch_and_optimize` | 🧬 Calculating macronutrient balances... |
+| `image_translation` | 🧬 Calculating macros... |
+| `optimizer` | Optimizing menu items... |
+| `judge` | Adding final touches... |
+
+---
+
 ### `POST /api/optimize-meal`
 
-Search for optimized meals at nearby restaurants.
+Search for optimized meals at nearby restaurants. Returns an SSE stream.
 
 **Content-Type:** `application/json`
 
@@ -38,35 +91,49 @@ Search for optimized meals at nearby restaurants.
 
 #### Response
 
+SSE stream. The final `done` event contains `results` — an array of Order Result Objects (see [Response Schema Reference](#response-schema-reference)).
+
+---
+
+### `POST /api/optimize-menu-image-stream`
+
+Upload a menu photo as base64-encoded JSON and get optimized meal suggestions. Returns an SSE stream.
+
+> **This is the primary image endpoint** used by the Expo frontend's scan screen.
+
+**Content-Type:** `application/json`
+
+#### Request Body
+
 ```json
 {
-  "status": "success",
-  "results": [
-    {
-      "status": "Optimal",
-      "total_cost": 12.47,
-      "achieved_macros": { "cal": 1850, "p": 148, "c": 195, "f": 58 },
-      "gaps": { "cal": 0, "p": 0, "c": 0, "f": 0 },
-      "order": [
-        { "item": "Grilled Chicken Sandwich", "quantity": 2, "estimated": false }
-      ],
-      "restaurant": {
-        "name": "Chick-fil-A",
-        "address": "123 Main St",
-        "rating": 4.5,
-        "total_ratings": 1200,
-        "photo_url": "https://maps.googleapis.com/..."
-      }
-    }
-  ]
+  "image_b64": "<base64-encoded image string>",
+  "target_calories": 2000,
+  "target_protein": 150,
+  "target_carbs": 200,
+  "target_fats": 60
 }
 ```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `image_b64` | `string` | Yes | Base64-encoded image data |
+| `target_calories` | `float` | Yes | Daily calorie ceiling |
+| `target_protein` | `float` | Yes | Target protein in grams |
+| `target_carbs` | `float` | Yes | Target carbs in grams |
+| `target_fats` | `float` | Yes | Target fats in grams |
+
+#### Response
+
+SSE stream. The final `done` event contains `results` — an array of Order Result Objects where the `restaurant` field will be a string like `"Uploaded Menu (Option 1)"`.
 
 ---
 
 ### `POST /api/optimize-menu-image`
 
-Upload a menu photo and get optimized meal suggestions.
+Upload a menu photo as multipart form-data and get optimized meal suggestions. Returns an SSE stream.
+
+> **Legacy fallback** — the frontend primarily uses `/api/optimize-menu-image-stream` instead.
 
 **Content-Type:** `multipart/form-data`
 
@@ -82,7 +149,7 @@ Upload a menu photo and get optimized meal suggestions.
 
 #### Response
 
-Same structure as `/api/optimize-meal`, but the `restaurant` field will be a string like `"Uploaded Menu (Option 1)"` instead of an object.
+SSE stream. Same event format and result structure as `/api/optimize-menu-image-stream`.
 
 ---
 
@@ -92,7 +159,7 @@ Same structure as `/api/optimize-meal`, but the `restaurant` field will be a str
 
 Translates a menu image into structured nutrition data.
 
-> **Note:** This is an internal service called by the backend engine. It is not intended to be called directly by the frontend.
+> **Note:** This is an internal service called by the backend engine's `image_translation` graph node. It is not intended to be called directly by the frontend.
 
 **Content-Type:** `multipart/form-data`
 
@@ -101,6 +168,15 @@ Translates a menu image into structured nutrition data.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `file` | `UploadFile` | Yes | Image of a restaurant menu |
+
+#### Processing Pipeline
+
+1. Gemini 2.5 Flash Vision extracts menu items and raw ingredients (with structured output schema)
+2. Ingredients are named using USDA-style format (e.g., "Beef, ground, 80% lean, raw")
+3. Portion sizes are estimated for large restaurant servings
+4. Prices are extracted from the menu image (default: $10.00 if not visible)
+5. Each ingredient is analyzed via `ingredient_analyzer` for USDA macro lookup
+6. Final results include per-item macros and prices
 
 #### Response
 
@@ -131,6 +207,7 @@ Translates a menu image into structured nutrition data.
 | `gaps` | `object` | `{ cal, p, c, f }` — shortfall from targets (0 = perfect) |
 | `order` | `array` | List of `{ item, quantity, estimated }` |
 | `restaurant` | `string \| object` | Restaurant name (vision path) or full restaurant object (search path) |
+| `estimated` | `bool` | `true` if macros were AI-estimated (not from a nutrition database) |
 
 ### Restaurant Object (Search Path)
 

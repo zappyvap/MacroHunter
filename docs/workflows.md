@@ -61,7 +61,9 @@ MacroHunter has **two primary workflows** that share the same LangGraph state ma
    - Writes `final_orders` to state.
 
 6. **Response**
-   - `engine.py` returns `final_state["final_orders"]` as JSON to the frontend.
+   - `engine.py` streams real-time progress via SSE `agent_update` events as each graph node completes.
+   - When the judge finishes, a final `done` event is sent containing the `final_orders` array.
+   - The frontend's `EventSource` listener receives these events and navigates to the results screen.
 
 ---
 
@@ -101,7 +103,9 @@ MacroHunter has **two primary workflows** that share the same LangGraph state ma
    - Same ranking logic as the Search Path.
 
 5. **Response**
-   - Same JSON structure returned to the frontend.
+   - `engine.py` streams progress via SSE `agent_update` events to the scan screen.
+   - The scan screen displays each update as animated step text.
+   - A final `done` event sends the results, and the frontend navigates to the results screen.
 
 ---
 

@@ -36,6 +36,8 @@ HOST_IP="10.0.0.241"
 EXPO_PUBLIC_HOST_IP="10.0.0.241"
 ```
 
+> **Note:** `HOST_IP` and `EXPO_PUBLIC_HOST_IP` should be set to your machine's local network IP. The frontend uses `EXPO_PUBLIC_HOST_IP` to connect to the backend's SSE endpoints. Docker Compose uses `HOST_IP` for the Expo packager hostname.
+
 ### Where to Get API Keys
 
 | Service | URL | Tier |
@@ -75,7 +77,7 @@ docker compose up --build
 | Image Scanner | `http://localhost:8001` |
 | Expo App | `http://localhost:8081` |
 
-> **Note:** Update `REACT_NATIVE_PACKAGER_HOSTNAME` in `docker-compose.yml` to your machine's local IP if you want to test on a physical device.
+> **Note:** Update `HOST_IP` in your `.env` file to your machine's local IP if you want to test on a physical device. This value is used for both `REACT_NATIVE_PACKAGER_HOSTNAME` and `EXPO_PUBLIC_HOST_IP` in the Docker Compose configuration.
 
 ### Rebuilding After Changes
 
@@ -98,8 +100,8 @@ cd backend
 
 # Create and activate virtual environment
 python -m venv .venv
-.venv\Scripts\activate     # Windows
-# source .venv/bin/activate  # macOS/Linux
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate   # Windows
 
 # Install dependencies
 pip install -r requirements.txt
@@ -147,6 +149,7 @@ python -m pytest tests/ -v
 |---|---|
 | `test_ingredient_analyzer.py` | Unit tests for ingredient weight parsing and USDA macro lookup |
 | `test_chain_reader.py` | Tests for FatSecret integration and menu normalization |
+| `test_engine.py` | API endpoint tests (request validation, error handling, mock graph responses) |
 | `test_accuracy_e2e.py` | End-to-end accuracy tests comparing optimized results to known values |
 
 ---
@@ -167,19 +170,20 @@ MacroHunter/
 ├── backend/                      # FastAPI engine + LangGraph
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── engine.py                 # API endpoints
+│   ├── engine.py                 # API endpoints (SSE streaming)
 │   ├── graph.py                  # LangGraph state machine
 │   └── tests/
 │       ├── conftest.py
 │       ├── test_ingredient_analyzer.py
 │       ├── test_chain_reader.py
+│       ├── test_engine.py
 │       └── test_accuracy_e2e.py
 ├── mcp_servers/                  # MCP tool modules
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   ├── calorie_optimizer.py      # PuLP linear programming
 │   ├── chain_reader.py           # FatSecret + Gemini menu fetch
-│   ├── image_scraper.py          # Gemini Vision menu scanner
+│   ├── image_scraper.py          # Gemini Vision menu scanner (FastAPI)
 │   ├── ingredient_analyzer.py    # USDA FDC macro calculator
 │   ├── judge.py                  # Result ranking
 │   ├── restaurant_finder.py      # Google Places search
@@ -190,16 +194,15 @@ MacroHunter/
     ├── app.json
     ├── index.js
     └── src/
-        ├── App.js                # Web-only single-screen version (legacy)
         ├── app/
         │   ├── _layout.js        # Root layout (SearchProvider wrapper)
         │   ├── index.js          # Home screen (macro inputs + search/scan)
-        │   ├── results.js        # Results screen (cards + lightbox)
-        │   └── scan.js           # Scanning screen (image preview)
+        │   ├── results.js        # Results screen (cards + swipeable lightbox)
+        │   └── scan.js           # Scan screen (animated scan overlay + SSE)
         ├── constants/
         │   ├── colors.js         # Color palette
         │   ├── component-style.js # className-to-style wrappers
         │   └── styles.js         # StyleSheet definitions
         └── context/
-            └── SearchContext.js   # Global search results state
+            └── SearchContext.js   # Global search results + scan payload state
 ```
