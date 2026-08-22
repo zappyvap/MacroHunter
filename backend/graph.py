@@ -8,6 +8,29 @@ import requests
 from operator import add
 import json
 import base64
+import time
+import functools
+
+# ── Node timing decorator ─────────────────────────────────────────────────────
+# Wraps any synchronous graph node and prints its wall-clock execution time.
+# For parallel nodes (fetch_and_optimize), each branch logs independently so
+# you can see which restaurant took the longest.
+def timed_node(fn):
+    @functools.wraps(fn)
+    def wrapper(state):
+        start = time.perf_counter()
+        result = fn(state)
+        elapsed = time.perf_counter() - start
+        # include restaurant name for parallel branches so logs are distinguishable
+        label = fn.__name__
+        if label == "fetch_and_optimize":
+            idx = state.get("current_restaurant_index", 0)
+            restaurants = state.get("restaurant_list") or []
+            name = restaurants[idx]["name"] if idx < len(restaurants) else f"#{idx}"
+            label = f"fetch_and_optimize({name})"
+        print(f"⏱  {label}: {elapsed:.2f}s")
+        return result
+    return wrapper
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -56,6 +79,7 @@ graph_builder = StateGraph(State) # makes the graph
 # define all the nodes needed
 
 # this node finds nearby restaurants based on user location
+@timed_node
 def find_restaurants(state: State):
     print("📍 Routing: Finding nearby restaurants...")
     result = restaurant_finder(LocationDetails(
@@ -72,6 +96,7 @@ def find_restaurants(state: State):
 # to shared state simultaneously. by merging them here, each branch keeps its
 # menu data as a local variable and only writes to best_orders at the end,
 # which is safe because best_orders uses the Annotated[list, add] reducer.
+@timed_node
 def fetch_and_optimize(state: State):
     print("🍔 Routing: Pulling database menus...")
     index = state.get("current_restaurant_index", 0)
@@ -106,6 +131,7 @@ def fetch_and_optimize(state: State):
     }
 
 # this is when the user uploads a picture instead of searching for restaurants
+@timed_node
 def image_translation(state: State):
     """
     Expects state["image_b64"] to be a Base64-encoded image string.
@@ -134,6 +160,7 @@ def image_translation(state: State):
 
 # this is the calorie optimization node for the vision path only.
 # the parallel restaurant path uses fetch_and_optimize instead.
+@timed_node
 def optimize_calories(state: State):
     print("🧮 Routing: Running PuLP Math Engine...")
     print("DEBUG - Targets:", {
@@ -178,6 +205,7 @@ def optimize_calories(state: State):
 # to see the best overall meals. It then returns the same orders but sorted by the best to worst.
 # because all parallel branches feed into best_orders before judge runs, this node
 # always receives the full set of results regardless of how many restaurants were found.
+@timed_node
 def judge_node(state: State):
     print("⚖️  Routing: Judging best meals...")
     result = judge(

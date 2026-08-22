@@ -1,6 +1,7 @@
 from google.genai.types import MediaModality
 from asyncio import base_events
 import json
+import time
 from langchain_core.runnables import config
 from fastapi import HTTPException
 import base64
@@ -77,11 +78,18 @@ async def stream_helper(initial_state):
     user_message = "Done"
     detail_text = ""
     final_orders = []
+    request_start = time.perf_counter()
+    last_ts = request_start
     try:
         # yield immediately so the UI updates instantly
         yield f"event: agent_update\ndata: {json.dumps({'status': 'processing', 'headline': '🔍 Finding restaurants near you...', 'detail': ''})}\n\n"
         async for chunk in graph.astream(initial_state, config=my_graph_config, stream_mode="updates"):
             node_name, node_output = next(iter(chunk.items()))
+            now = time.perf_counter()
+            split = now - last_ts
+            total = now - request_start
+            print(f"⏱  [stream] {node_name}: +{split:.2f}s (total: {total:.2f}s)")
+            last_ts = now
             # capture the final results whenever the judge node runs
             if node_name == "judge" and node_output.get("final_orders"):
                 final_orders = node_output["final_orders"]
@@ -93,6 +101,8 @@ async def stream_helper(initial_state):
                 user_message = f"Executing step: {node_name}"
                 detail_text = ""
             yield f"event: agent_update\ndata: {json.dumps({'status': 'processing', 'headline': user_message, 'detail': detail_text})}\n\n"
+        total = time.perf_counter() - request_start
+        print(f"⏱  [stream] TOTAL request: {total:.2f}s")
         yield f"event: done\ndata: {json.dumps({'status': 'done', 'headline': user_message, 'detail': detail_text, 'results': final_orders})}\n\n"
     except Exception as e:
         yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
@@ -124,11 +134,18 @@ async def image_stream_helper(initial_state):
     user_message = "Done"
     detail_text = ""
     final_orders = []
+    request_start = time.perf_counter()
+    last_ts = request_start
     try:
         # yield immediately so the UI doesn't look stuck while Gemini runs for 15s
         yield f"event: agent_update\ndata: {json.dumps({'status': 'processing', 'headline': '📷 Reading menu layout and identifying items...', 'detail': ''})}\n\n"
         async for chunk in graph.astream(initial_state, config=my_graph_config, stream_mode="updates"):
             node_name, node_output = next(iter(chunk.items()))
+            now = time.perf_counter()
+            split = now - last_ts
+            total = now - request_start
+            print(f"⏱  [stream] {node_name}: +{split:.2f}s (total: {total:.2f}s)")
+            last_ts = now
             # capture the final results whenever the judge node runs
             if node_name == "judge" and node_output.get("final_orders"):
                 final_orders = node_output["final_orders"]
@@ -140,6 +157,8 @@ async def image_stream_helper(initial_state):
                 user_message = f"Executing step: {node_name}"
                 detail_text = ""
             yield f"event: agent_update\ndata: {json.dumps({'status': 'processing', 'headline': user_message, 'detail': detail_text})}\n\n"
+        total = time.perf_counter() - request_start
+        print(f"⏱  [stream] TOTAL request: {total:.2f}s")
         yield f"event: done\ndata: {json.dumps({'status': 'done', 'headline': user_message, 'detail': detail_text, 'results': final_orders})}\n\n"
     except Exception as e:
         yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
