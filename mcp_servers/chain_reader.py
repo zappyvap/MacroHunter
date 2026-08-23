@@ -42,7 +42,7 @@ class RestaurantItems(BaseModel):
 
 
 CACHE_TABLE = "menu_cache"
-CACHE_MAX_AGE_DAYS = 1  # set to 0 to force a re-fetch and cache update every time
+CACHE_MAX_AGE_DAYS = 0  # set to 0 to force a re-fetch and cache update every time
 
 def _cache_key(restaurant_name: str) -> str:
     """Normalize the name so 'Applebee's' and 'applebee's' hit the same row."""
@@ -154,11 +154,12 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
     Examples: "Oil, canola", "Onions, raw", "Cheese, cheddar", "Beef, ground, 80% lean, raw",
     "Tomatoes, red, ripe, raw", "Bread, hamburger bun", "Sauce, barbecue".
 
-    PORTIONS: You MUST estimate large, calorie-dense American restaurant portions. DO NOT use home-cooking or standard dietary portion sizes.
-    Restaurant meals are massive. A pub sandwich or burger often contains 6-8 oz of meat, heavy butter/oil, and huge sides (12+ oz of fries/potatoes).
-    A restaurant pasta dish uses 6-8 oz cooked pasta. Sauces and dressings are heavy (2-4 tbsp).
-    A bowl of soup is typically 16-24 oz (2-3 cups) and contains plenty of mix-ins (e.g., 5-8 wontons, 2 eggs).
-    Appetizers (giant pub pretzels, wings, egg rolls) are huge (e.g., a 10 oz soft pretzel, 4 oz cheese dip).
+    PORTIONS: You must carefully estimate portions based on the TYPE of restaurant:
+    - FAST FOOD (QSR): Use standard fast-food portion sizes. Burger patties are typically small (1.6 oz to 4 oz). Chicken fillets are 3-4 oz. Slices of cheese are 0.5 oz.
+    - SIT-DOWN / PUB: Use large, calorie-dense American portions. A pub burger often contains 6-8 oz of meat, heavy butter/oil, and 12+ oz of sides.
+    - DRESSINGS / SAUCES: Always estimate heavy (1-3 tbsp for fast food, 2-4 tbsp for sit-down).
+    
+    CRITICAL: Always explicitly specify the weight or volume (e.g. "1.6 oz", "4 oz", "2 tbsp") rather than just "1 patty".
 
     If you don't know this restaurant well enough, return an empty list.
     """

@@ -1,7 +1,9 @@
 from google.genai import file_search_stores
 import os
+import time
 from pydantic import BaseModel
 from usda_fdc import FdcClient
+from usda_fdc.exceptions import FdcResourceNotFoundError
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 import json
@@ -12,7 +14,46 @@ load_dotenv()
 mcp = FastMCP("USDA FDC Ingredient Analyzer")
 
 USDA_KEY = os.getenv("USDA_API_KEY")
-client = FdcClient(api_key=USDA_KEY)
+_raw_client = FdcClient(api_key=USDA_KEY)
+
+# ─── Retry-aware USDA client wrapper ─────────────────────────────────────
+# The USDA FoodData Central API intermittently returns 404 on perfectly
+# valid requests.  These are transient server-side errors, not real
+# "not found" responses.  Wrapping search() and get_food() with simple
+# retry logic fixes the vast majority of failed ingredient lookups.
+_USDA_MAX_RETRIES = 3
+_USDA_BACKOFF = 0.4  # seconds, multiplied by attempt number
+
+class _RetryClient:
+    """Thin wrapper around FdcClient that retries on transient 404s."""
+
+    def __init__(self, inner: FdcClient):
+        self._inner = inner
+
+    def search(self, *args, **kwargs):
+        last_exc = None
+        for attempt in range(1, _USDA_MAX_RETRIES + 1):
+            try:
+                return self._inner.search(*args, **kwargs)
+            except FdcResourceNotFoundError as e:
+                last_exc = e
+                if attempt < _USDA_MAX_RETRIES:
+                    time.sleep(_USDA_BACKOFF * attempt)
+        raise last_exc  # type: ignore[misc]
+
+    def get_food(self, *args, **kwargs):
+        last_exc = None
+        for attempt in range(1, _USDA_MAX_RETRIES + 1):
+            try:
+                return self._inner.get_food(*args, **kwargs)
+            except FdcResourceNotFoundError as e:
+                last_exc = e
+                if attempt < _USDA_MAX_RETRIES:
+                    time.sleep(_USDA_BACKOFF * attempt)
+        raise last_exc  # type: ignore[misc]
+
+client = _RetryClient(_raw_client)
+
 
 
 # ─── Context-aware ingredient weight tables ──────────────────────────────
