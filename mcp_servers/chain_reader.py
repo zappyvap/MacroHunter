@@ -1,3 +1,4 @@
+from google.genai.types import ThinkingConfig
 from typing import Literal
 from pydantic import Field
 import os
@@ -39,6 +40,10 @@ class Ingredient(BaseModel):
 class RestaurantItems(BaseModel):
     itemName: str
     ingredients: list[Ingredient]
+    price: float = Field(description="Item Price. Examples: 5.00, 10.99")
+
+class ItemPrice(BaseModel):
+    itemName: float = Field(description="Item Price. Examples: 5.00, 10.99")
 
 
 CACHE_TABLE = "menu_cache"
@@ -145,8 +150,8 @@ def get_fatsecret_token():
 # we use Gemini to estimate the menu items and ingredients, then run them through
 # the ingredient analyzer to get real USDA-backed macros.
 def estimate_menu_via_ai(restaurant_name: str) -> str:
-    prompt = f"""
-    You are a nutrition database. For the restaurant "{restaurant_name}",
+    sys_prompt = """
+    You are a nutrition database. For the given restaurant,
     list 15-20 common menu items with their ingredients.
     Include ONLY items you are confident are on the menu.
 
@@ -161,12 +166,21 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
     
     CRITICAL: Always explicitly specify the weight or volume (e.g. "1.6 oz", "4 oz", "2 tbsp") rather than just "1 patty".
 
+
+    PRICING: Estimate the average US price for each item.
+    Do not use dollar signs. Do not include any explanation or extra text.
+    
     If you don't know this restaurant well enough, return an empty list.
     """
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        config=GenerateContentConfig(response_mime_type="application/json", response_schema=list[RestaurantItems]),
-        contents=prompt,
+        config=GenerateContentConfig(
+            response_mime_type="application/json", 
+            response_schema=list[RestaurantItems],
+            system_instruction=sys_prompt,
+            temperature=0.2
+        ),
+        contents=f"Restaurant: {restaurant_name}",
     )
     parsed = response.parsed if response.parsed else []
     if not isinstance(parsed, list):
@@ -176,36 +190,15 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
     # Ingredient strings become e.g. "6 oz Cheese, cheddar" — the USDA-formatted name
     # flows directly into the USDA search query downstream.
     legacy_items = []
+    estimated_prices = {}
     for item in parsed:
         ingredients = [f"{ing.quantity} {ing.unit} {ing.name}" for ing in item.ingredients]
         legacy_items.append({"item": item.itemName, "ingredients": ingredients})
-
+        if item.price is not None:
+            estimated_prices[item.itemName] = item.price
+    
     analyzed_foods = analyze_ingredient(legacy_items)
-    item_names = [food.item for food in analyzed_foods]
-
-    estimated_prices = {}
-    if item_names:
-        system_instruction = """
-        You are a professional price estimator.
-        I will give you a list of fast food items from a specific restaurant.
-        Estimate the average US price for each item.
-        Return ONLY a JSON dictionary where the key is the exact item name, and the value is a float (e.g., 5.99).
-        Do not use dollar signs. Do not include any explanation or extra text.
-        """
-        try:
-            price_response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                config=GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    response_mime_type="application/json",
-                ),
-                contents=f"Restaurant: {restaurant_name}\nItems: {json.dumps(item_names)}",
-            )
-            if price_response.text is not None:
-                estimated_prices = json.loads(price_response.text)
-        except Exception as e:
-            print(f"Warning: Gemini price estimation failed for AI menu: {e}")
-
+    
     normalized_menu = []
     for food in analyzed_foods:
         try:
@@ -382,6 +375,9 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
             config=GenerateContentConfig(
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
+                response_schema=list[ItemPrice],
+                thinking_config=ThinkingConfig(thinking_budget=0),
+                temperature = 0.2
             ),
             contents=f"Restaurant: {restaurant_name}\nItems: {json.dumps(item_names)}",
         )

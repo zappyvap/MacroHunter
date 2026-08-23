@@ -1,3 +1,4 @@
+import asyncio
 from google.genai import file_search_stores
 import os
 import time
@@ -21,7 +22,7 @@ _raw_client = FdcClient(api_key=USDA_KEY)
 # valid requests.  These are transient server-side errors, not real
 # "not found" responses.  Wrapping search() and get_food() with simple
 # retry logic fixes the vast majority of failed ingredient lookups.
-_USDA_MAX_RETRIES = 3
+_USDA_MAX_RETRIES = 1
 _USDA_BACKOFF = 0.4  # seconds, multiplied by attempt number
 
 class _RetryClient:
@@ -425,7 +426,7 @@ def analyze_ingredient(food_items: list[dict]) -> list[FoodItem]:
     Uses the USDA FDC API to search for each food by name and pull nutrient data per 100g.
     """
     food_list: list[FoodItem] = []
-
+    sem = asyncio.Semaphore(10)
     for food_item in food_items:
         # Initialize variables
         calories = 0.0

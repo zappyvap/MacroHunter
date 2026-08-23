@@ -1,4 +1,75 @@
 
+══════════════════════════════════════════════════════════════════
+  BENCHMARK SUMMARY - 2026-08-23 14:05:14
+══════════════════════════════════════════════════════════════════
+  Node                                            Mean      Min      Max   ±StdDev
+  ──────────────────────────────────────────── ───────  ───────  ───────  ────────
+  fetch_and_optimize(Kimpton Hotel Eventi)      66.78s   62.62s   73.96s  ± 6.25s
+  fetch_and_optimize(The Frederick Hotel)       46.52s   40.25s   53.93s  ± 6.91s
+  fetch_and_optimize(Union Hotel Brooklyn)      31.81s    2.84s   48.45s  ±25.18s
+  find_restaurants                               0.45s    0.31s    0.71s  ± 0.22s
+  judge_node                                     0.00s    0.00s    0.00s  ± 0.00s
+  ──────────────────────────────────────────── ───────  ───────  ───────  ────────
+  TOTAL (wall clock)                            67.24s   63.34s   74.31s  ± 6.13s
+══════════════════════════════════════════════════════════════════
+
+  Note: parallel fetch_and_optimize branches overlap in wall-clock time.
+  The TOTAL is the true end-to-end time; per-node sums will exceed it.
+
+
+
+════════════════════════════════════════════════════════════════════════════════
+  ACCURACY SUMMARY - 2026-08-23 14:01:53
+════════════════════════════════════════════════════════════════════════════════
+  Restaurant                   Path        Matched  MAPE(Cal)  MAPE(P)  MAPE(C)  MAPE(F)
+  ──────────────────────────── ────────── ────────  ───────── ──────── ──────── ────────
+  McDonald's                   fatsecret       0/7        N/A      N/A      N/A      N/A
+  Chick-fil-A                  fatsecret       0/4        N/A      N/A      N/A      N/A
+  McDonald's (AI)              ai_estimation      6/6      95.3%    93.1%    99.4%    92.3%
+  ──────────────────────────── ────────── ────────  ───────── ──────── ──────── ────────
+  OVERALL                                     6         95.3%    93.1%    99.4%    92.3%
+════════════════════════════════════════════════════════════════════════════════
+
+
+
+══════════════════════════════════════════════════════════════════
+  BENCHMARK SUMMARY - 2026-08-23 13:11:28
+══════════════════════════════════════════════════════════════════
+  Node                                            Mean      Min      Max   ±StdDev
+  ──────────────────────────────────────────── ───────  ───────  ───────  ────────
+  fetch_and_optimize(Kimpton Hotel Eventi)     215.05s  187.47s  259.26s  ±38.68s
+  fetch_and_optimize(The Frederick Hotel)      201.38s  163.77s  250.94s  ±44.79s
+  fetch_and_optimize(Union Hotel Brooklyn)     154.58s    3.34s  260.96s  ±134.54s
+  find_restaurants                               1.02s    0.74s    1.18s  ± 0.24s
+  judge_node                                     0.00s    0.00s    0.00s  ± 0.00s
+  ──────────────────────────────────────────── ───────  ───────  ───────  ────────
+  TOTAL (wall clock)                           240.91s  200.19s  262.09s  ±35.28s
+══════════════════════════════════════════════════════════════════
+
+  Note: parallel fetch_and_optimize branches overlap in wall-clock time.
+  The TOTAL is the true end-to-end time; per-node sums will exceed it.
+
+
+
+══════════════════════════════════════════════════════════════════
+  BENCHMARK SUMMARY - 2026-08-23 12:53:25
+══════════════════════════════════════════════════════════════════
+  Node                                            Mean      Min      Max   ±StdDev
+  ──────────────────────────────────────────── ───────  ───────  ───────  ────────
+  fetch_and_optimize(Union Hotel Brooklyn)     193.82s    2.63s  322.50s  ±168.85s
+  fetch_and_optimize(Kimpton Hotel Eventi)     183.76s    1.90s  302.45s  ±159.92s
+  fetch_and_optimize(The Frederick Hotel)        2.76s    2.22s    3.44s  ± 0.62s
+  find_restaurants                               1.03s    0.85s    1.14s  ± 0.16s
+  judge_node                                     0.00s    0.00s    0.00s  ± 0.00s
+  ──────────────────────────────────────────── ───────  ───────  ───────  ────────
+  TOTAL (wall clock)                           276.29s  248.07s  323.35s  ±41.03s
+══════════════════════════════════════════════════════════════════
+
+  Note: parallel fetch_and_optimize branches overlap in wall-clock time.
+  The TOTAL is the true end-to-end time; per-node sums will exceed it.
+
+
+
 ════════════════════════════════════════════════════════════════════════════════
   ACCURACY SUMMARY - 2026-08-23 00:54:57
 ════════════════════════════════════════════════════════════════════════════════
