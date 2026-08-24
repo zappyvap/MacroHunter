@@ -15,9 +15,9 @@ except ModuleNotFoundError:
     from mcp_servers.supabase_client import supabase
 
 try:
-    from ingredient_analyzer import analyze_ingredient
+    from ingredient_analyzer import analyze_ingredient, run_analyze_ingredient
 except ModuleNotFoundError:
-    from mcp_servers.ingredient_analyzer import analyze_ingredient
+    from mcp_servers.ingredient_analyzer import analyze_ingredient, run_analyze_ingredient
 
 from pydantic import BaseModel
 
@@ -37,17 +37,21 @@ class Ingredient(BaseModel):
     quantity: float = Field(description="Numeric amount")
     unit: Literal["oz", "g", "lb", "cup", "tbsp", "tsp", "slice", "piece", "ml"]
 
+class ItemPrice(BaseModel):
+    itemName: str
+    price: float
+
 class RestaurantItems(BaseModel):
     itemName: str
     ingredients: list[Ingredient]
     price: float = Field(description="Item Price. Examples: 5.00, 10.99")
 
-class ItemPrice(BaseModel):
-    itemName: float = Field(description="Item Price. Examples: 5.00, 10.99")
 
 
 CACHE_TABLE = "menu_cache"
-CACHE_MAX_AGE_DAYS = 0  # set to 0 to force a re-fetch and cache update every time
+# Set to 0 to force a re-fetch and cache update every time (useful for debugging/benchmarking).
+# In production, this should be set to e.g. 30 to cache menus for a month.
+CACHE_MAX_AGE_DAYS = 0
 
 def _cache_key(restaurant_name: str) -> str:
     """Normalize the name so 'Applebee's' and 'applebee's' hit the same row."""
@@ -150,6 +154,14 @@ def get_fatsecret_token():
 # we use Gemini to estimate the menu items and ingredients, then run them through
 # the ingredient analyzer to get real USDA-backed macros.
 def estimate_menu_via_ai(restaurant_name: str) -> str:
+    """
+    Estimates a full menu and ingredients for a restaurant using Gemini.
+    
+    The system prompt is highly tuned to output ingredients in a format that
+    `ingredient_analyzer.py` can parse accurately. Strict rules on unit quantities
+    (e.g., 1.5 buns for a Big Mac instead of 3 pieces) and explicit fast-food naming
+    are required to prevent wild macro overestimations during the USDA lookup phase.
+    """
     sys_prompt = """
     You are a nutrition database. For the given restaurant,
     list 15-20 common menu items with their ingredients.
@@ -196,8 +208,8 @@ def estimate_menu_via_ai(restaurant_name: str) -> str:
         legacy_items.append({"item": item.itemName, "ingredients": ingredients})
         if item.price is not None:
             estimated_prices[item.itemName] = item.price
-    
-    analyzed_foods = analyze_ingredient(legacy_items)
+            
+    analyzed_foods = run_analyze_ingredient(legacy_items)
     
     normalized_menu = []
     for food in analyzed_foods:
@@ -376,13 +388,12 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=list[ItemPrice],
-                thinking_config=ThinkingConfig(thinking_budget=0),
                 temperature = 0.2
             ),
             contents=f"Restaurant: {restaurant_name}\nItems: {json.dumps(item_names)}",
         )
-        if price_response.text is not None:
-            estimated_prices = json.loads(price_response.text)
+        if price_response.parsed is not None:
+            estimated_prices = {item.itemName: item.price for item in price_response.parsed}
         else:
             estimated_prices = {}
     except Exception as e:

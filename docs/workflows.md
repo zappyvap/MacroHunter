@@ -139,7 +139,7 @@ search_chain_restaurant(name)
 ```
 
 - **Cache key:** lowercase, trimmed restaurant name.
-- **Staleness:** controlled by `CACHE_MAX_AGE_DAYS` (currently set to 1, meaning menus older than 1 day are re-fetched).
+- **Staleness:** controlled by `CACHE_MAX_AGE_DAYS` (currently set to 0 for debugging/testing, meaning menus are always re-fetched. Set to e.g. 30 in production).
 - **Upsert:** uses Supabase `upsert` to insert or update.
 - **Failure tolerance:** cache read/write errors are caught and logged but never crash the pipeline.
 
@@ -160,7 +160,10 @@ Input: [{"item": "Cheeseburger", "ingredients": ["6 oz ground beef", "1 slice ch
                     ▼
         ┌───────────────────────┐
         │  Check hardcoded      │  Eggs, rice, tortillas, sauces
-        │  fallback table       │  (USDA search consistently fails on these)
+        │  fallback table       │  (USDA search consistently fails on these).
+        │  (COMMON_FALLBACKS)   │  Also includes specific fast-food combos like
+        │                       │  "steamed bun" or "breaded chicken" which
+        │                       │  otherwise fuzzy match to incorrect USDA items.
         └───────────┬───────────┘
                     │ No match
                     ▼

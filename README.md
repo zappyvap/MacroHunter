@@ -205,11 +205,21 @@ MacroHunter/
 
 ---
 
-## Running Tests
+## Running Tests & Benchmarks
 
+To run the standard pytest suite:
 ```bash
 cd backend
 python -m pytest tests/ -v
+```
+
+To run the end-to-end performance and accuracy benchmark (tests the LangGraph pipeline against known ground-truth macros):
+```bash
+# Run a full 3-iteration end-to-end benchmark
+python benchmark.py
+
+# Run ONLY the accuracy test (bypasses the graph to quickly test AI estimation accuracy)
+python benchmark.py --runs 0 --accuracy
 ```
 
 ---

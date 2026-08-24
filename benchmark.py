@@ -347,7 +347,7 @@ def _print_accuracy_report(results: list[dict]):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-async def main():
+def main():
     parser = argparse.ArgumentParser(description="MacroHunter pipeline benchmark")
     parser.add_argument("--runs",     type=int,   default=3,        help="Iterations (default: 3)")
     parser.add_argument("--mode",     choices=["search", "vision"],  default="search")
@@ -393,17 +393,21 @@ async def main():
         run_accuracy_test()
 
     if args.runs > 0:
-        print(f"\nMacroHunter Benchmark  |  mode={args.mode}  runs={args.runs}")
-        print(f"Targets: {args.calories}kcal / {args.protein}g P / {args.carbs}g C / {args.fats}g F")
-        if args.mode == "search":
-            print(f"Location: ({args.lat}, {args.lon})")
+        asyncio.run(run_benchmarks(args, initial_state))
 
-        for i in range(1, args.runs + 1):
-            total = await run_once(initial_state, i)
-            _run_totals.append(total)
 
-        print_report(_run_totals, _timings)
+async def run_benchmarks(args, initial_state):
+    print(f"\nMacroHunter Benchmark  |  mode={args.mode}  runs={args.runs}")
+    print(f"Targets: {args.calories}kcal / {args.protein}g P / {args.carbs}g C / {args.fats}g F")
+    if args.mode == "search":
+        print(f"Location: ({args.lat}, {args.lon})")
+
+    for i in range(1, args.runs + 1):
+        total = await run_once(initial_state, i)
+        _run_totals.append(total)
+
+    print_report(_run_totals, _timings)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

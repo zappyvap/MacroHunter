@@ -111,9 +111,9 @@ Each server is a standalone Python module decorated with `@mcp.tool()` using the
 | Server | File | External APIs |
 |---|---|---|
 | Restaurant Finder | `restaurant_finder.py` | Google Places Nearby Search |
-| Chain Reader | `chain_reader.py` | FatSecret (OAuth 2.0), Gemini 2.5 Flash |
+| Chain Reader | `chain_reader.py` | FatSecret (OAuth 2.0), Gemini 2.5 Flash, Supabase `menu_cache` |
 | Calorie Optimizer | `calorie_optimizer.py` | PuLP (CBC solver, local) |
-| Ingredient Analyzer | `ingredient_analyzer.py` | USDA FoodData Central |
+| Ingredient Analyzer | `ingredient_analyzer.py` | USDA FoodData Central (with `_RetryClient` in-memory memoization) |
 | Image Scraper | `image_scraper.py` | Gemini 2.5 Flash (vision) |
 | Judge | `judge.py` | None (pure sorting) |
 | Supabase Client | `supabase_client.py` | Supabase Postgres |
