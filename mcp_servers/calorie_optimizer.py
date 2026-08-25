@@ -68,7 +68,7 @@ def optimizer(
 
 
     # solves it
-    prob.solve(pulp.COIN_CMD(path="/opt/homebrew/bin/cbc", msg=False))
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
     # Parse results
     final_order = []

@@ -302,10 +302,13 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
         return "[]"
 
     # filter to only keep items actually from that restaurant
+    # Check both directions: the brand might be shorter than the search name
+    # (e.g. brand "Little Caesars" vs search "Little Caesars Pizza") or vice versa.
     restaurant_lower = restaurant_name.lower()
     foods_data = [
         f for f in foods_data
         if restaurant_lower in f.get("brand_name", "").lower()
+        or f.get("brand_name", "").lower() in restaurant_lower
         or restaurant_lower in f.get("food_name", "").lower()
     ]
     if not foods_data:

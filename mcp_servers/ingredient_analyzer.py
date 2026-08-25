@@ -468,15 +468,26 @@ async def limited_fetch(item,sem):
 
 @mcp.tool()
 def run_analyze_ingredient(food_items: list[dict]) -> list[FoodItem]:
-    # Wrapper to run the async gathering in a sync context so chain_reader 
+    # Wrapper to run the async gathering in a sync context so chain_reader
     # can call it without needing to be async itself.
+    # When called from inside a running event loop (e.g. LangGraph's astream),
+    # asyncio.run() raises RuntimeError. In that case, we spin up a fresh
+    # event loop on a background thread to avoid deadlocking.
     async def _run():
         # USDA's nginx proxy throws 503 Service Temporarily Unavailable if we hit it with too many concurrent requests
         sem = asyncio.Semaphore(2)
         lis = [limited_fetch(item,sem) for item in food_items]
         return await asyncio.gather(*lis)
-    
-    return asyncio.run(_run())
+
+    try:
+        asyncio.get_running_loop()
+        # We're inside a running loop — run in a separate thread
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, _run()).result()
+    except RuntimeError:
+        # No running loop — safe to use asyncio.run directly
+        return asyncio.run(_run())
 
 
 @mcp.tool()
