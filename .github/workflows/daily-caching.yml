@@ -18,6 +18,7 @@ jobs:
       FATSECRET_CLIENT_SECRET: ${{ secrets.FATSECRET_CLIENT_SECRET }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
