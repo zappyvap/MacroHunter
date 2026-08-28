@@ -16,16 +16,42 @@ export default function Scan() {
   const { setResults, scanPayload } = useSearch();
 
   const [streamedText, setStreamedText] = useState("");
+  const [streamProgress, setStreamProgress] = useState(0);
+  const streamStepRef = useRef(0);
+
+  // Animated progress bar
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressGlow = useRef(new Animated.Value(0)).current;
 
   // Scan line sweeps top → bottom
-  const scanY      = useRef(new Animated.Value(0)).current;
+  const scanY = useRef(new Animated.Value(0)).current;
   // Border glow pulse
-  const glowPulse  = useRef(new Animated.Value(0)).current;
+  const glowPulse = useRef(new Animated.Value(0)).current;
   // Bouncing dots
-  const dot1       = useRef(new Animated.Value(0)).current;
-  const dot2       = useRef(new Animated.Value(0)).current;
-  const dot3       = useRef(new Animated.Value(0)).current;
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
 
+
+  // Animate progress bar smoothly whenever streamProgress changes
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: streamProgress,
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [streamProgress]);
+
+  // Glow pulse on progress bar
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(progressGlow, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+        Animated.timing(progressGlow, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      ])
+    ).start();
+  }, []);
 
   useEffect(() => {
     // Scan line loop
@@ -60,7 +86,7 @@ export default function Scan() {
         Animated.sequence([
           Animated.delay(delay),
           Animated.timing(anim, { toValue: -7, duration: 280, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0,  duration: 280, easing: Easing.in(Easing.quad),  useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: 280, easing: Easing.in(Easing.quad), useNativeDriver: true }),
           Animated.delay(840),
         ])
       );
@@ -85,19 +111,27 @@ export default function Scan() {
         body: JSON.stringify(payload),
       });
 
+      // Expected steps: initial yield + image_translation + optimizer + judge = ~4
+      const EXPECTED_STEPS = 4;
+
       es.addEventListener("agent_update", (e) => {
         try {
           const parsed = JSON.parse(e.data);
           setStreamedText(parsed.headline || "");
-        } catch {}
+          streamStepRef.current += 1;
+          setStreamProgress(Math.min(streamStepRef.current / EXPECTED_STEPS, 0.95));
+        } catch { }
       });
 
       es.addEventListener("done", (e) => {
         try {
           const parsed = JSON.parse(e.data);
+          setStreamProgress(1);
           setResults(parsed.results);
           es.close();
-          router.push('/results');
+          setTimeout(() => {
+            router.push('/results');
+          }, 400);
         } catch (err) {
           es.close();
           Alert.alert("Error", "Failed to parse results.");
@@ -133,6 +167,19 @@ export default function Scan() {
     outputRange: [0.4, 1],
   });
 
+  const displayPct = Math.round(streamProgress * 100);
+
+  const progressBarWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
+  const progressGlowOpacity = progressGlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
   if (!imageUri) {
     return (
       <View style={styles.container}>
@@ -152,7 +199,7 @@ export default function Scan() {
         <Animated.View style={[styles.frameBorder, { opacity: borderOpacity }]} />
 
         {/* Corner accent marks */}
-        {['tl','tr','bl','br'].map(c => (
+        {['tl', 'tr', 'bl', 'br'].map(c => (
           <View key={c} style={[styles.corner, styles[c]]} />
         ))}
 
@@ -177,6 +224,22 @@ export default function Scan() {
       <Text style={styles.stepText}>
         {streamedText || "Initializing scanner..."}
       </Text>
+
+      {/* Progress bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressTrack}>
+          <Animated.View style={[
+            styles.progressFill,
+            { width: progressBarWidth },
+          ]}>
+            <Animated.View style={[
+              styles.progressGlowBar,
+              { opacity: progressGlowOpacity },
+            ]} />
+          </Animated.View>
+        </View>
+        <Text style={styles.progressLabel}>{displayPct}%</Text>
+      </View>
 
       {/* Bouncing dots */}
       <View style={styles.dotsRow}>
@@ -229,9 +292,9 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     zIndex: 4,
   },
-  tl: { top: -2, left: -2,   borderTopWidth: 3, borderLeftWidth: 3,   borderTopLeftRadius: 6 },
-  tr: { top: -2, right: -2,  borderTopWidth: 3, borderRightWidth: 3,  borderTopRightRadius: 6 },
-  bl: { bottom: -2, left: -2,  borderBottomWidth: 3, borderLeftWidth: 3,  borderBottomLeftRadius: 6 },
+  tl: { top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 6 },
+  tr: { top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 6 },
+  bl: { bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 6 },
   br: { bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 6 },
 
   imageWrapper: {
@@ -273,6 +336,44 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: 0.2,
   },
+  // ── Progress bar ──
+  progressContainer: {
+    width: '85%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    gap: 12,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+    overflow: 'hidden',
+  },
+  progressGlowBar: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 24,
+    backgroundColor: colors.accentGlow,
+  },
+  progressLabel: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    minWidth: 38,
+    textAlign: 'right',
+  },
+  // ── End progress bar ──
   dotsRow: {
     flexDirection: 'row',
     gap: 10,

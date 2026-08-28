@@ -6,7 +6,7 @@ import { Alert, StyleSheet, View as RNView, Animated, Easing } from 'react-nativ
 import { Link } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSearch } from '../context/SearchContext';
-import {router, useLocalSearchParams} from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import styles from '../constants/styles';
 import * as ImagePicker from 'expo-image-picker';
 import EventSource from 'react-native-sse';
@@ -159,14 +159,14 @@ function CaloriesCard({ calories, setCalories }) {
 // ─── MacrosCard ───────────────────────────────────────────────────────────────
 const MACRO_FIELDS = [
   { label: "Protein", color: "var(--protein)", cls: "protein", key: "protein" },
-  { label: "Carbs",   color: "var(--carbs)",   cls: "carbs",   key: "carbs"   },
-  { label: "Fats",    color: "var(--fats)",     cls: "fats",    key: "fats"    },
+  { label: "Carbs", color: "var(--carbs)", cls: "carbs", key: "carbs" },
+  { label: "Fats", color: "var(--fats)", cls: "fats", key: "fats" },
 ];
 
 function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
-  const vals    = { protein, carbs, fats };
+  const vals = { protein, carbs, fats };
   const setters = { protein: setProtein, carbs: setCarbs, fats: setFats };
-  const total   = (+protein || 0) + (+carbs || 0) + (+fats || 0);
+  const total = (+protein || 0) + (+carbs || 0) + (+fats || 0);
   return (
     <View className="macros-card">
       <View><Text className="section-label">Macro Targets</Text></View>
@@ -188,8 +188,8 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
       {total > 0 && (
         <View className="macro-bars">
           <MacroBar label="PRO" value={+protein || 0} max={total} color="var(--protein)" />
-          <MacroBar label="CRB" value={+carbs   || 0} max={total} color="var(--carbs)"   />
-          <MacroBar label="FAT" value={+fats    || 0} max={total} color="var(--fats)"    />
+          <MacroBar label="CRB" value={+carbs || 0} max={total} color="var(--carbs)" />
+          <MacroBar label="FAT" value={+fats || 0} max={total} color="var(--fats)" />
         </View>
       )}
     </View>
@@ -222,20 +222,44 @@ const STEPS = [
   "🏆 Ranking your best options...",
 ];
 
-function BasicLoadingScreen({ headline }) {
+function BasicLoadingScreen({ headline, progress }) {
   // Spinner rotation
-  const spinAnim   = React.useRef(new Animated.Value(0)).current;
+  const spinAnim = React.useRef(new Animated.Value(0)).current;
   // Radar ring pulses (3 rings, staggered)
-  const pulse1     = React.useRef(new Animated.Value(0)).current;
-  const pulse2     = React.useRef(new Animated.Value(0)).current;
-  const pulse3     = React.useRef(new Animated.Value(0)).current;
+  const pulse1 = React.useRef(new Animated.Value(0)).current;
+  const pulse2 = React.useRef(new Animated.Value(0)).current;
+  const pulse3 = React.useRef(new Animated.Value(0)).current;
   // Dot bounce
-  const dot1       = React.useRef(new Animated.Value(0)).current;
-  const dot2       = React.useRef(new Animated.Value(0)).current;
-  const dot3       = React.useRef(new Animated.Value(0)).current;
+  const dot1 = React.useRef(new Animated.Value(0)).current;
+  const dot2 = React.useRef(new Animated.Value(0)).current;
+  const dot3 = React.useRef(new Animated.Value(0)).current;
   // Text fade
   const textOpacity = React.useRef(new Animated.Value(0)).current;
   const [displayedHeadline, setDisplayedHeadline] = React.useState(headline || STEPS[0]);
+
+  // Animated progress bar width
+  const progressAnim = React.useRef(new Animated.Value(0)).current;
+  const progressGlowAnim = React.useRef(new Animated.Value(0)).current;
+
+  // Animate progress bar smoothly whenever progress changes
+  React.useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
+
+  // Glow pulse on the progress bar
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(progressGlowAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+        Animated.timing(progressGlowAnim, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      ])
+    ).start();
+  }, []);
 
   // Fade-in text whenever headline changes
   React.useEffect(() => {
@@ -269,7 +293,7 @@ function BasicLoadingScreen({ headline }) {
         Animated.sequence([
           Animated.delay(delay),
           Animated.timing(anim, { toValue: -8, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0,  duration: 300, easing: Easing.in(Easing.quad),  useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: 300, easing: Easing.in(Easing.quad), useNativeDriver: true }),
           Animated.delay(900),
         ])
       );
@@ -281,8 +305,21 @@ function BasicLoadingScreen({ headline }) {
   const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   const makePulseStyle = (anim) => ({
-    opacity:   anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.6, 0] }),
+    opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.6, 0] }),
     transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.6] }) }],
+  });
+
+  const displayPct = Math.round(progress * 100);
+
+  const progressBarWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
+  const glowOpacity = progressGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
   });
 
   return (
@@ -308,6 +345,22 @@ function BasicLoadingScreen({ headline }) {
       <Animated.Text style={[loadingStyles.headline, { opacity: textOpacity }]}>
         {displayedHeadline}
       </Animated.Text>
+
+      {/* Progress bar */}
+      <RNView style={loadingStyles.progressContainer}>
+        <RNView style={loadingStyles.progressTrack}>
+          <Animated.View style={[
+            loadingStyles.progressFill,
+            { width: progressBarWidth },
+          ]}>
+            <Animated.View style={[
+              loadingStyles.progressGlow,
+              { opacity: glowOpacity },
+            ]} />
+          </Animated.View>
+        </RNView>
+        <Text style={loadingStyles.progressLabel}>{displayPct}%</Text>
+      </RNView>
 
       {/* Bouncing dots */}
       <RNView style={loadingStyles.dotsRow}>
@@ -383,6 +436,42 @@ const loadingStyles = StyleSheet.create({
     lineHeight: 26,
     letterSpacing: 0.3,
   },
+  progressContainer: {
+    width: '85%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 28,
+    gap: 12,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+    overflow: 'hidden',
+  },
+  progressGlow: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 24,
+    backgroundColor: colors.accentGlow,
+  },
+  progressLabel: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    minWidth: 38,
+    textAlign: 'right',
+  },
   dotsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -406,19 +495,21 @@ const loadingStyles = StyleSheet.create({
 // ─── HunterPage ───────────────────────────────────────────────────────────────
 function HunterPage() {
   const [calories, setCalories] = useState("");
-  const [protein,  setProtein]  = useState("");
-  const [carbs,    setCarbs]    = useState("");
-  const [fats,     setFats]     = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fats, setFats] = useState("");
   const [locState, setLocState] = useState("idle");
   const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
-  const [loading,  setLoading]  = useState(false);
-  const {results, setResults, setScanPayload} = useSearch();
+  const [loading, setLoading] = useState(false);
+  const { results, setResults, setScanPayload } = useSearch();
   const [selected, setSelected] = useState(null);
-  const [imageUri, setImageUri] = useState(null); 
-  const [streamedText, setStreamedText] = useState("")
+  const [imageUri, setImageUri] = useState(null);
+  const [streamedText, setStreamedText] = useState("");
+  const [streamProgress, setStreamProgress] = useState(0);
+  const streamStepRef = React.useRef(0);
 
   useEffect(() => {
-    if(imageUri) {
+    if (imageUri) {
       setScanPayload({
         imageB64: imageUri.base64,
         calories,
@@ -428,7 +519,7 @@ function HunterPage() {
       });
       router.push({
         pathname: '/scan',
-        params: { 
+        params: {
           imageUri: imageUri.uri,
         }
       })
@@ -438,13 +529,15 @@ function HunterPage() {
   const isFormReady = calories && protein && carbs && fats;
 
   const handleTakePicture = () => takePicture(setImageUri);
-  
+
 
   // sends the user's macro targets + location to the backend via SSE streaming and navigates to results
   const runSearch = async (lat, lng) => {
     setLoading(true);
     setResults(null);
     setStreamedText("");
+    setStreamProgress(0);
+    streamStepRef.current = 0;
     const payload = {
       searching_for_restaurant: true,
       latitude: lat, longitude: lng,
@@ -460,20 +553,28 @@ function HunterPage() {
           body: JSON.stringify(payload),
         });
 
+        // Expected steps: initial yield + find_restaurants + fetch_and_optimize + optimizer + judge = ~5
+        const EXPECTED_STEPS = 5;
+
         es.addEventListener("agent_update", (e) => {
           try {
             const parsed = JSON.parse(e.data);
             setStreamedText(parsed.headline || "");
-          } catch {}
+            streamStepRef.current += 1;
+            setStreamProgress(Math.min(streamStepRef.current / EXPECTED_STEPS, 0.95));
+          } catch { }
         });
 
         es.addEventListener("done", (e) => {
           try {
             const parsed = JSON.parse(e.data);
+            setStreamProgress(1);
             setResults(parsed.results);
             es.close();
-            resolve();
-            router.push('/results');
+            setTimeout(() => {
+              resolve();
+              router.push('/results');
+            }, 400);
           } catch (err) {
             es.close();
             reject(err);
@@ -539,7 +640,7 @@ function HunterPage() {
 
   return (
     <>
-      <SafeAreaView className="app-header" flex ="1" flexDirection="column" justifyContent="flex-end" alignItems="center">
+      <SafeAreaView className="app-header" flex="1" flexDirection="column" justifyContent="flex-end" alignItems="center">
         <View className="panel-left">
           <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
           </View>
@@ -682,7 +783,7 @@ function HunterPage() {
       )}
       {loading && (
         <RNView style={[StyleSheet.absoluteFillObject, { zIndex: 1000, backgroundColor: '#0a0a0a' }]}>
-          <BasicLoadingScreen headline={streamedText} />
+          <BasicLoadingScreen headline={streamedText} progress={streamProgress} />
         </RNView>
       )}
     </>
@@ -694,20 +795,20 @@ function AppLayout({ locState, children }) {
     <>
       <View className="app">
         <View className="radar-bg">
-          {[300,240,180,120,60].map((s,i) => <View key={i} className="radar-ring" style={{ width: s, height: s }} />)}
+          {[300, 240, 180, 120, 60].map((s, i) => <View key={i} className="radar-ring" style={{ width: s, height: s }} />)}
           <View className="radar-sweep" />
         </View>
         <View className="app-overlay" />
-          <View className="logo-mark">
-          </View>
-          <View>
-            <View><Text className="logo-text">MacroHunter</Text></View>
-            <View><Text className="logo-sub">Find your perfect meal</Text></View>
-          </View>
-          <View className="header-right">
-            <View className={`status-dot ${locState === "denied" ? "denied" : ""}`} />
-            <Text>{locState === "acquiring" ? "Acquiring GPS…" : locState === "ready" ? "GPS Active" : locState === "denied" ? "GPS Denied" : "GPS Standby"}</Text>
-          </View>
+        <View className="logo-mark">
+        </View>
+        <View>
+          <View><Text className="logo-text">MacroHunter</Text></View>
+          <View><Text className="logo-sub">Find your perfect meal</Text></View>
+        </View>
+        <View className="header-right">
+          <View className={`status-dot ${locState === "denied" ? "denied" : ""}`} />
+          <Text>{locState === "acquiring" ? "Acquiring GPS…" : locState === "ready" ? "GPS Active" : locState === "denied" ? "GPS Denied" : "GPS Standby"}</Text>
+        </View>
         {children}
       </View>
     </>

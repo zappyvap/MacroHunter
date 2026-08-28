@@ -19,7 +19,7 @@ restaurants = restaurant_finder(
     LocationDetails(
         lat=LAT, 
         lon=LONG,
-        radius=25
+        radius=5
     )
 )
 

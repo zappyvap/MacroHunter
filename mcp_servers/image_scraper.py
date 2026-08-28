@@ -36,7 +36,7 @@ Using a FastAPI server instead of MCP for this case because the MCP would need a
 version of the image to work with and that adds unnecessary complexity. This endpoint is just for
 taking in an image, sending it to Gemini for translation, and then returning the JSON result.
 """
-from ingredient_analyzer import analyze_ingredient
+from ingredient_analyzer import run_analyze_ingredient
 
 @app.post("/translate-menu")
 async def translate_menu(file: UploadFile = File(...)):
@@ -79,7 +79,7 @@ async def translate_menu(file: UploadFile = File(...)):
         legacy_items.append({"item": item.itemName, "ingredients": ingredients})
 
     # Run through the math engine
-    analyzed_foods = analyze_ingredient(legacy_items)
+    analyzed_foods = run_analyze_ingredient(legacy_items)
     
     # Format for the frontend
     results = []
@@ -89,13 +89,15 @@ async def translate_menu(file: UploadFile = File(...)):
     price_map = {item.itemName: item.price for item in parsed}
     
     for food in analyzed_foods:
+        raw_price = price_map.get(food.item, 10.00)
         results.append({
             "name": food.item,
             "calories": food.calories,
             "protein": food.protein,
             "carbs": food.carbs,
             "fats": food.fat,
-            "price": price_map.get(food.item, 10.00)
+            "price": round(float(raw_price), 2),
+            "estimated": True,  # Scanned menu macros are always AI-estimated, never verified
         })
         
     return results
