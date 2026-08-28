@@ -34,6 +34,10 @@ def optimizer(
     # basically it can only change the amount of items we buy, not changing the actual menu
     item_vars = pulp.LpVariable.dicts("Qty", [i["name"] for i in menu_items], lowBound=0, cat='Integer')
     
+    # cap each item at 3 so the solver can't stack unrealistic quantities of one dish
+    for item in menu_items:
+        prob += item_vars[item["name"]] <= 3
+
     # this makes the slack variables that measure the gap between what we achieve and the goal
     slack_p = pulp.LpVariable("Slack_Protein", lowBound=0)
     slack_c = pulp.LpVariable("Slack_Carbs", lowBound=0)
