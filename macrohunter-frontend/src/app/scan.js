@@ -16,32 +16,50 @@ export default function Scan() {
   const { setResults, scanPayload } = useSearch();
 
   const [streamedText, setStreamedText] = useState("");
-  const [streamProgress, setStreamProgress] = useState(0);
   const streamStepRef = useRef(0);
 
-  // Animated progress bar
+  // Progress bar — crawl toward per-step cap, stop, wait for next event
   const progressAnim = useRef(new Animated.Value(0)).current;
   const progressGlow = useRef(new Animated.Value(0)).current;
+  const crawlPos = useRef(0);
+  const stepCapRef = useRef(0.80);
+  const [displayPct, setDisplayPct] = useState(0);
 
-  // Scan line sweeps top → bottom
-  const scanY = useRef(new Animated.Value(0)).current;
-  // Border glow pulse
-  const glowPulse = useRef(new Animated.Value(0)).current;
-  // Bouncing dots
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
-
-
-  // Animate progress bar smoothly whenever streamProgress changes
+  // Crawl interval: advances bar toward current cap, stops exactly there
   useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: streamProgress,
-      duration: 600,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [streamProgress]);
+    const id = setInterval(() => {
+      const cap = stepCapRef.current;
+      const pos = crawlPos.current;
+      if (pos >= cap) return;
+      
+      // When done fires (cap = 1), snap immediately instead of crawling
+      if (cap >= 1) {
+        crawlPos.current = 1;
+        setDisplayPct(100);
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+        return;
+      }
+
+      const remaining = cap - pos;
+      // Much slower crawl for the long image processing wait (~60 seconds)
+      const increment = Math.max(remaining * 0.006, 0.0005);
+      const next = Math.min(pos + increment, cap);
+      crawlPos.current = next;
+      setDisplayPct(Math.round(next * 100));
+      Animated.timing(progressAnim, {
+        toValue: next,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false,
+      }).start();
+    }, 150);
+    return () => clearInterval(id);
+  }, []);
 
   // Glow pulse on progress bar
   useEffect(() => {
@@ -52,6 +70,15 @@ export default function Scan() {
       ])
     ).start();
   }, []);
+
+  // Scan line sweeps top → bottom
+  const scanY = useRef(new Animated.Value(0)).current;
+  // Border glow pulse
+  const glowPulse = useRef(new Animated.Value(0)).current;
+  // Bouncing dots
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Scan line loop
@@ -119,14 +146,16 @@ export default function Scan() {
           const parsed = JSON.parse(e.data);
           setStreamedText(parsed.headline || "");
           streamStepRef.current += 1;
-          setStreamProgress(Math.min(streamStepRef.current / EXPECTED_STEPS, 0.95));
-        } catch { }
+          // Ensure the cap never decreases below its current value, while allowing it to reach 95% on later steps
+          stepCapRef.current = Math.max(stepCapRef.current, Math.min(streamStepRef.current / EXPECTED_STEPS, 0.95));
+        } catch {}
       });
 
       es.addEventListener("done", (e) => {
         try {
           const parsed = JSON.parse(e.data);
-          setStreamProgress(1);
+          stepCapRef.current = 1;
+          setDisplayPct(100);
           setResults(parsed.results);
           es.close();
           setTimeout(() => {
@@ -166,8 +195,6 @@ export default function Scan() {
     inputRange: [0, 1],
     outputRange: [0.4, 1],
   });
-
-  const displayPct = Math.round(streamProgress * 100);
 
   const progressBarWidth = progressAnim.interpolate({
     inputRange: [0, 1],

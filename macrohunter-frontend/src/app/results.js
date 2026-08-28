@@ -145,7 +145,7 @@ function ResultTextel({ loading, results, onCardPress, onBack }) {
       {loading && (
         <View className="results-list">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
       )}
-      {!loading && results && (
+      {!loading && results && results.length > 0 && (
         <ScrollView style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
         <View className="results-list" style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
           {results.map((r, i) => (
@@ -153,6 +153,13 @@ function ResultTextel({ loading, results, onCardPress, onBack }) {
           ))}
         </View>
         </ScrollView>
+      )}
+      {!loading && results && results.length === 0 && (
+        <View className="empty-state">
+          <View className="empty-icon"><Text>🍽️</Text></View>
+          <View><Text className="empty-text">No Matches Found</Text></View>
+          <View><Text className="empty-sub">We couldn't find any menu items that fit your macro targets. Try relaxing your goals or scanning a different menu.</Text></View>
+        </View>
       )}
       {!loading && !results && (
         <View className="empty-state">

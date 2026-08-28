@@ -222,7 +222,7 @@ const STEPS = [
   "🏆 Ranking your best options...",
 ];
 
-function BasicLoadingScreen({ headline, progress }) {
+function BasicLoadingScreen({ headline, stepCap }) {
   // Spinner rotation
   const spinAnim = React.useRef(new Animated.Value(0)).current;
   // Radar ring pulses (3 rings, staggered)
@@ -237,19 +237,50 @@ function BasicLoadingScreen({ headline, progress }) {
   const textOpacity = React.useRef(new Animated.Value(0)).current;
   const [displayedHeadline, setDisplayedHeadline] = React.useState(headline || STEPS[0]);
 
-  // Animated progress bar width
+  // Progress bar
   const progressAnim = React.useRef(new Animated.Value(0)).current;
   const progressGlowAnim = React.useRef(new Animated.Value(0)).current;
+  const crawlPos = React.useRef(0);          // current bar position (0–1)
+  const [displayPct, setDisplayPct] = React.useState(0); // drives the label
 
-  // Animate progress bar smoothly whenever progress changes
+  // Crawl toward stepCap each tick, stop when reached, resume when cap rises
+  const stepCapRef = React.useRef(stepCap);
   React.useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 600,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [progress]);
+    stepCapRef.current = stepCap;
+  }, [stepCap]);
+
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      const cap = stepCapRef.current;
+      const pos = crawlPos.current;
+      if (pos >= cap) return; // at cap — wait for next event
+      // When done fires (cap = 1), snap immediately instead of crawling
+      if (cap >= 1) {
+        crawlPos.current = 1;
+        setDisplayPct(100);
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+        return;
+      }
+      // Decelerate: faster far from cap, nearly stopped just before it
+      const remaining = cap - pos;
+      const increment = Math.max(remaining * 0.04, 0.001);
+      const next = Math.min(pos + increment, cap);
+      crawlPos.current = next;
+      setDisplayPct(Math.round(next * 100));
+      Animated.timing(progressAnim, {
+        toValue: next,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false,
+      }).start();
+    }, 150);
+    return () => clearInterval(id);
+  }, []);
 
   // Glow pulse on the progress bar
   React.useEffect(() => {
@@ -308,8 +339,6 @@ function BasicLoadingScreen({ headline, progress }) {
     opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.6, 0] }),
     transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.6] }) }],
   });
-
-  const displayPct = Math.round(progress * 100);
 
   const progressBarWidth = progressAnim.interpolate({
     inputRange: [0, 1],
@@ -505,7 +534,7 @@ function HunterPage() {
   const [selected, setSelected] = useState(null);
   const [imageUri, setImageUri] = useState(null);
   const [streamedText, setStreamedText] = useState("");
-  const [streamProgress, setStreamProgress] = useState(0);
+  const [stepCap, setStepCap] = useState(0);
   const streamStepRef = React.useRef(0);
 
   useEffect(() => {
@@ -536,7 +565,7 @@ function HunterPage() {
     setLoading(true);
     setResults(null);
     setStreamedText("");
-    setStreamProgress(0);
+    setStepCap(0);
     streamStepRef.current = 0;
     const payload = {
       searching_for_restaurant: true,
@@ -561,20 +590,21 @@ function HunterPage() {
             const parsed = JSON.parse(e.data);
             setStreamedText(parsed.headline || "");
             streamStepRef.current += 1;
-            setStreamProgress(Math.min(streamStepRef.current / EXPECTED_STEPS, 0.95));
+            // Each event unlocks the next step's cap — bar crawls there and stops
+            setStepCap(Math.min(streamStepRef.current / EXPECTED_STEPS, 0.95));
           } catch { }
         });
 
         es.addEventListener("done", (e) => {
           try {
             const parsed = JSON.parse(e.data);
-            setStreamProgress(1);
+            setStepCap(1); // unlock 100% — bar crawls to the end
             setResults(parsed.results);
             es.close();
             setTimeout(() => {
               resolve();
               router.push('/results');
-            }, 400);
+            }, 500);
           } catch (err) {
             es.close();
             reject(err);
@@ -783,7 +813,7 @@ function HunterPage() {
       )}
       {loading && (
         <RNView style={[StyleSheet.absoluteFillObject, { zIndex: 1000, backgroundColor: '#0a0a0a' }]}>
-          <BasicLoadingScreen headline={streamedText} progress={streamProgress} />
+          <BasicLoadingScreen headline={streamedText} stepCap={stepCap} />
         </RNView>
       )}
     </>
