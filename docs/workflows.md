@@ -139,9 +139,16 @@ search_chain_restaurant(name)
 ```
 
 - **Cache key:** lowercase, trimmed restaurant name.
-- **Staleness:** controlled by `CACHE_MAX_AGE_DAYS` (currently set to 0 for debugging/testing, meaning menus are always re-fetched. Set to e.g. 30 in production).
+- **Staleness:** controlled by `CACHE_MAX_AGE_DAYS` (currently set to 7, meaning menus are cached for a week).
 - **Upsert:** uses Supabase `upsert` to insert or update.
 - **Failure tolerance:** cache read/write errors are caught and logged but never crash the pipeline.
+
+### Automated Cache Warming
+
+To ensure fast response times for popular locations, a GitHub Action (`.github/workflows/daily-caching.yml`) runs automatically on the 1st and 15th of every month. It executes `backend/scripts/caching-script.py`, which:
+1. Simulates a location search using the Google Places API for a predefined central location.
+2. Loops through the discovered restaurants and executes `search_chain_restaurant()`.
+3. Pre-populates or refreshes the Supabase `menu_cache` before users actually search for those restaurants.
 
 ---
 

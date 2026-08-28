@@ -60,9 +60,9 @@ MacroHunter is a three-tier application built around an **AI-orchestrated agenti
 The frontend is a **multi-screen Expo Router app** with these key files:
 
 - **`_layout.js`** — root layout wrapping all pages in `SearchProvider`
-- **`index.js`** — home screen with **HunterPage**, **CaloriesCard**, **MacrosCard**, **LocationCard**, camera scan button, SSE search streaming, and animated loading screen (radar pulse + spinning arc + bouncing dots)
+- **`index.js`** — home screen with **HunterPage**, **CaloriesCard**, **MacrosCard**, **LocationCard**, camera scan button, SSE search streaming, and animated loading screen (radar pulse + spinning arc + bouncing dots + streaming progress bar)
 - **`results.js`** — results screen with **ResultTextel** (result list), **ResultCard** (score percentage, macro breakdown, cost, verified/estimated badge), **ResultLightbox** (swipeable detail view with PanResponder, restaurant photo, native maps directions, match score chip)
-- **`scan.js`** — scanning screen showing the captured menu image with animated scan-line sweep, glowing border, corner accent marks, and SSE progress text from the backend
+- **`scan.js`** — scanning screen showing the captured menu image with animated scan-line sweep, glowing border, corner accent marks, streaming progress bar, and SSE progress text from the backend
 
 #### Key Frontend Components
 
@@ -71,10 +71,10 @@ The frontend is a **multi-screen Expo Router app** with these key files:
 | `CaloriesCard` | `index.js` | Calorie input with visual progress bar (0–3000 scale) |
 | `MacrosCard` | `index.js` | Protein/carbs/fats inputs with color-coded proportion bars |
 | `LocationCard` | `index.js` | GPS status display (idle → acquiring → ready / denied) |
-| `BasicLoadingScreen` | `index.js` | Animated radar pulse, spinning arc, bouncing dots, fading headline |
+| `BasicLoadingScreen` | `index.js` | Animated radar pulse, spinning arc, bouncing dots, fading headline, and streaming progress bar |
 | `ResultCard` | `results.js` | Summary card: dish name, restaurant, macros, cost, score tag |
 | `ResultLightbox` | `results.js` | Full detail modal: photo, macros, price, directions button, swipe navigation |
-| `Scan` | `scan.js` | Menu image with scan-line animation and SSE progress updates |
+| `Scan` | `scan.js` | Menu image with scan-line animation, streaming progress bar, and SSE progress updates |
 | `SearchProvider` | `SearchContext.js` | Global state for results and scan payload across screens |
 
 #### Debug Panel

@@ -49,13 +49,13 @@ All endpoints below return `text/event-stream` responses. The frontend receives 
 
 The backend translates internal graph node names into user-facing messages:
 
-| Node | Headline |
-|---|---|
-| `find_restaurants` | 🔍 Scanning menus at nearby restaurants... |
-| `fetch_and_optimize` | 🧬 Calculating macronutrient balances... |
-| `image_translation` | 🧬 Calculating macros... |
-| `optimizer` | Optimizing menu items... |
-| `judge` | Adding final touches... |
+| Node | Headline | Detail |
+|---|---|---|
+| `find_restaurants` | 🔍 Scanning menus at nearby restaurants... | "Found {N} restaurants to evaluate." |
+| `fetch_and_optimize` | 🧬 Calculating macronutrient balances... | "Matching items against your target protein and calories..." |
+| `image_translation` | 🧬 Calculating macros... | "Extracting protein and calorie counts from menu..." |
+| `optimizer` | Optimizing menu items... | "Optimizing {N} menu items..." |
+| `judge` | Adding final touches... | "Sorting by price..." |
 
 ---
 
@@ -91,7 +91,15 @@ Search for optimized meals at nearby restaurants. Returns an SSE stream.
 
 #### Response
 
-SSE stream. The final `done` event contains `results` — an array of Order Result Objects (see [Response Schema Reference](#response-schema-reference)).
+SSE stream. The stream immediately yields an initial event to update the UI:
+```json
+{
+  "status": "processing",
+  "headline": "🔍 Finding restaurants near you...",
+  "detail": ""
+}
+```
+The final `done` event contains `results` — an array of Order Result Objects (see [Response Schema Reference](#response-schema-reference)).
 
 ---
 
@@ -125,7 +133,15 @@ Upload a menu photo as base64-encoded JSON and get optimized meal suggestions. R
 
 #### Response
 
-SSE stream. The final `done` event contains `results` — an array of Order Result Objects where the `restaurant` field will be a string like `"Uploaded Menu (Option 1)"`.
+SSE stream. The stream immediately yields an initial event to update the UI:
+```json
+{
+  "status": "processing",
+  "headline": "📷 Reading menu layout and identifying items...",
+  "detail": ""
+}
+```
+The final `done` event contains `results` — an array of Order Result Objects where the `restaurant` field will be a string like `"Uploaded Menu (Option 1)"`.
 
 ---
 
