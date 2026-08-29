@@ -325,9 +325,22 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
 
         macros = {"Calories": 0, "Protein": 0, "Carbs": 0, "Fat": 0}
 
-        # If it's a generic weight (e.g. 100g or 1 oz), the description doesn't have the full meal size.
-        # We must make an extra API call to get the actual serving size.
-        if "per 100g" in lower_desc or "per 100 g" in lower_desc or "oz" in lower_desc:
+        # ── Partial-serving keywords ───────────────────────────────────────
+        # FatSecret often reports pizza/pie items "per 1 slice" even when the
+        # food_name is the whole item.  We need to detect these so we can
+        # fetch the full serving list and scale up to whole-item macros.
+        PARTIAL_KEYWORDS = [
+            "slice", "piece", "1/2", "1/3", "1/4", "1/5",
+            "1/6", "1/8", "1/10", "1/12",
+        ]
+        needs_api_call = (
+            "per 100g" in lower_desc
+            or "per 100 g" in lower_desc
+            or "oz" in lower_desc
+            or any(kw in lower_desc for kw in PARTIAL_KEYWORDS)
+        )
+
+        if needs_api_call:
             food_id = item.get("food_id")
             if not food_id:
                 continue
@@ -343,18 +356,65 @@ def search_chain_restaurant(restaurant_name: str, num_items: int = 30) -> str:
                 
                 if not servings:
                     continue
-                    
-                # Find a non-weight serving size
-                chosen_serving = servings[0]
+
+                # ── Serving selection: prefer whole-item over partial ──
+                # Walk the serving list looking for a whole-item serving
+                # (e.g. "1 pizza").  If only a fractional serving exists
+                # (e.g. "1 slice (1/8 pizza)"), extract the denominator
+                # and multiply all macros to reconstruct the whole item.
+                import re
+
+                WEIGHT_UNITS = {"g", "oz", "ml"}
+                FRAC_KEYWORDS = [
+                    "slice", "piece", "1/2", "1/3", "1/4", "1/5",
+                    "1/6", "1/8", "1/10", "1/12", "half",
+                ]
+
+                whole_serving = None
+                frac_serving = None
+                frac_multiplier = 1
+
                 for s in servings:
-                    if s.get("measurement_description", "").lower() not in ["g", "oz", "ml"]:
-                        chosen_serving = s
-                        break
-                        
-                macros["Calories"] = int(float(chosen_serving.get("calories", 0)))
-                macros["Protein"] = int(float(chosen_serving.get("protein", 0)))
-                macros["Carbs"] = int(float(chosen_serving.get("carbohydrate", 0)))
-                macros["Fat"] = int(float(chosen_serving.get("fat", 0)))
+                    m_desc = s.get("measurement_description", "").lower()
+                    s_desc = s.get("serving_description", "").lower()
+                    combined = f"{m_desc} {s_desc}"
+
+                    # Skip pure weight-based servings (100g, 1 oz, etc.)
+                    if m_desc in WEIGHT_UNITS:
+                        continue
+
+                    if any(kw in combined for kw in FRAC_KEYWORDS):
+                        # It's a fractional serving — keep it as a fallback
+                        frac_serving = s
+                        frac_match = re.search(r'1/(\d+)', combined)
+                        if frac_match:
+                            frac_multiplier = int(frac_match.group(1))
+                        elif "half" in combined or "1/2" in combined:
+                            frac_multiplier = 2
+                        else:
+                            # "1 slice" with no fraction hint — assume 8 slices
+                            # (standard pizza portioning)
+                            frac_multiplier = 8
+                        continue
+
+                    # Not a weight and not a fraction → whole-item serving
+                    whole_serving = s
+                    break
+
+                if whole_serving is not None:
+                    chosen_serving = whole_serving
+                    multiplier = 1
+                elif frac_serving is not None:
+                    chosen_serving = frac_serving
+                    multiplier = frac_multiplier
+                else:
+                    chosen_serving = servings[0]
+                    multiplier = 1
+
+                macros["Calories"] = int(float(chosen_serving.get("calories", 0)) * multiplier)
+                macros["Protein"] = int(float(chosen_serving.get("protein", 0)) * multiplier)
+                macros["Carbs"] = int(float(chosen_serving.get("carbohydrate", 0)) * multiplier)
+                macros["Fat"] = int(float(chosen_serving.get("fat", 0)) * multiplier)
             except Exception:
                 continue
         else:
