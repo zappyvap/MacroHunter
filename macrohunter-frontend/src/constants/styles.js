@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-around',
-    marginTop: 70,
+    marginTop: -10,
     marginBottom: 4,
   },
   'results-title': {

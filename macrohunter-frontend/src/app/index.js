@@ -195,22 +195,6 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
     </View>
   );
 }
-// ─── LocationCard ─────────────────────────────────────────────────────────────
-function LocationCard({ locState, location }) {
-  return (
-    <View className={`location-card ${locState === "acquiring" ? "acquiring" : ""} ${locState === "denied" ? "denied" : ""}`}>
-      <View className={`loc-icon ${locState === "denied" ? "denied" : ""}`}>
-      </View>
-      <View className="loc-text">
-        <View><Text className="loc-name">{location.name}</Text></View>
-        <View>
-          <Text className="loc-coords">{location.coords ?? (locState === "acquiring" ? "Waiting for browser prompt…" : "Will prompt when you search")}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 
 
 // ─── BasicLoadingScreen ────────────────────────────────────────────────────────
@@ -528,7 +512,7 @@ function HunterPage() {
   const [carbs, setCarbs] = useState("");
   const [fats, setFats] = useState("");
   const [locState, setLocState] = useState("idle");
-  const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
+  const [location, setLocation] = useState({ name: null, coords: null, lat: null, lng: null });
   const [loading, setLoading] = useState(false);
   const { results, setResults, setScanPayload } = useSearch();
   const [selected, setSelected] = useState(null);
@@ -671,9 +655,10 @@ function HunterPage() {
   return (
     <>
       <SafeAreaView className="app-header" flex="1" flexDirection="column" justifyContent="flex-end" alignItems="center">
-        <View className="panel-left">
-          <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
-          </View>
+
+
+        <View className="panel-left" style={{ flex: 1, justifyContent: 'space-between', paddingBottom: 20 }}>
+          <View style={{ alignItems: 'flex-start', marginBottom: 8 }} />
           <View style={{ position: 'relative', width: '100%', paddingTop: 44 }}>
             <View style={{ alignItems: 'center' }}>
               <View justifyContent="center" alignItems="center" gap={2}>
@@ -684,9 +669,17 @@ function HunterPage() {
               </View>
             </View>
           </View>
+          
+          <View style={{ flex: 0.3 }} />
+          
           <CaloriesCard calories={calories} setCalories={setCalories} />
+          
+          <View style={{ flex: 0.2 }} />
+          
           <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
-          <LocationCard locState={locState} location={location} />
+          
+          <View style={{ flex: 0.4 }} />
+
           <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
             <TouchableOpacity
               className={`search-btn ${loading ? "loading" : ""}`}
@@ -736,6 +729,8 @@ function HunterPage() {
               <Text style={{ fontSize: 16 }}>📷</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={{ flex: 1.2 }} />
         </View>
         {/* results are shown on the /results page via ResultTextel */}
       </SafeAreaView>

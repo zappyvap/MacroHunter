@@ -136,24 +136,24 @@ function ResultTextel({ loading, results, onCardPress, onBack }) {
           alignSelf: 'flex-start',
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 6,
+          justifyContent: 'center',
           backgroundColor: '#ffffff',
-          paddingVertical: 8,
-          paddingHorizontal: 14,
-          borderRadius: 999,
+          width: 48,
+          height: 48,
+          borderRadius: 24,
           borderWidth: 1,
           borderColor: '#e2e8f0',
-          marginBottom: -50,
+          marginTop: 12,
+          marginBottom: 0,
           zIndex: 10,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 1,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
         }}
       >
-        <Text style={{ fontWeight: '700', color: '#64748b', fontSize: 14, marginTop: -2 }}>←</Text>
-        <Text style={{ fontWeight: '600', color: '#475569', fontSize: 13, letterSpacing: 0.3 }}>New Search</Text>
+        <Text style={{ fontWeight: '800', color: '#64748b', fontSize: 24, marginTop: -2 }}>←</Text>
       </TouchableOpacity>
       <View className="results-header">
         <View>
