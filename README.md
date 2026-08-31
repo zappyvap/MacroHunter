@@ -19,13 +19,20 @@ MacroHunter is a decision support system that solves daily nutrition mathematica
 
 ---
 
-## Demo
+## Restaurant Search Demo
 
 
 https://github.com/user-attachments/assets/7fe52a57-2ef7-4187-ad81-41e47ad88ae8
 
 ---
 
+## Image Scan Demo
+
+
+
+https://github.com/user-attachments/assets/a803765f-b8ea-4f4b-a416-4d2f9ce61a40
+
+---
 ## Tech Stack
 
 | Layer              | Technology                                     |
