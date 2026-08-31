@@ -195,22 +195,6 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
     </View>
   );
 }
-// ─── LocationCard ─────────────────────────────────────────────────────────────
-function LocationCard({ locState, location }) {
-  return (
-    <View className={`location-card ${locState === "acquiring" ? "acquiring" : ""} ${locState === "denied" ? "denied" : ""}`}>
-      <View className={`loc-icon ${locState === "denied" ? "denied" : ""}`}>
-      </View>
-      <View className="loc-text">
-        <View><Text className="loc-name">{location.name}</Text></View>
-        <View>
-          <Text className="loc-coords">{location.coords ?? (locState === "acquiring" ? "Waiting for browser prompt…" : "Will prompt when you search")}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 
 
 // ─── BasicLoadingScreen ────────────────────────────────────────────────────────
@@ -528,7 +512,7 @@ function HunterPage() {
   const [carbs, setCarbs] = useState("");
   const [fats, setFats] = useState("");
   const [locState, setLocState] = useState("idle");
-  const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
+  const [location, setLocation] = useState({ name: null, coords: null, lat: null, lng: null });
   const [loading, setLoading] = useState(false);
   const { results, setResults, setScanPayload } = useSearch();
   const [selected, setSelected] = useState(null);
@@ -671,22 +655,31 @@ function HunterPage() {
   return (
     <>
       <SafeAreaView className="app-header" flex="1" flexDirection="column" justifyContent="flex-end" alignItems="center">
-        <View className="panel-left">
-          <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
-          </View>
+
+
+        <View className="panel-left" style={{ flex: 1, justifyContent: 'space-between', paddingBottom: 20 }}>
+          <View style={{ alignItems: 'flex-start', marginBottom: 8 }} />
           <View style={{ position: 'relative', width: '100%', paddingTop: 44 }}>
             <View style={{ alignItems: 'center' }}>
               <View justifyContent="center" alignItems="center" gap={2}>
-                <Text className="hero-text">Hunt Your Macros</Text>
+                <Text className="hero-text">Enter Your Macros</Text>
               </View>
-              <View style={{ marginTop: 10 }}>
-                <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
+              <View style={{ marginTop: 10, paddingHorizontal: 20 }}>
+                <Text className="hero-sub" style={{ textAlign: 'center' }}>Tell us your macronutrients goals and we'll find the best meals near you.</Text>
               </View>
             </View>
           </View>
+
+          <View style={{ flex: 0.3 }} />
+
           <CaloriesCard calories={calories} setCalories={setCalories} />
+
+          <View style={{ flex: 0.2 }} />
+
           <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
-          <LocationCard locState={locState} location={location} />
+
+          <View style={{ flex: 0.4 }} />
+
           <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
             <TouchableOpacity
               className={`search-btn ${loading ? "loading" : ""}`}
@@ -698,17 +691,17 @@ function HunterPage() {
               {loading ? (
                 <>
                   <Text className="spin">◈</Text>
-                  <Text style={{ color: '#64748b' }}>Scanning Area…</Text>
+                  <Text style={{ color: colors.muted }}>Scanning Area…</Text>
                 </>
               ) : locState === "acquiring" ? (
                 <>
                   <Text className="spin">◈</Text>
-                  <Text style={{ color: '#64748b' }}>Awaiting Permission…</Text>
+                  <Text style={{ color: colors.muted }}>Awaiting Permission…</Text>
                 </>
               ) : (
                 <>
                   <View className="btn-shimmer" />
-                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>⌖ Hunt Meals Nearby</Text>
+                  <Text style={{ color: colors.bg, fontFamily: 'Inter-Bold' }}>⌖ Hunt Meals Nearby</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -726,87 +719,23 @@ function HunterPage() {
                 paddingVertical: 16,
                 paddingHorizontal: 12,
                 borderRadius: 12,
-                backgroundColor: 'rgba(20, 19, 19, 0.08)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderWidth: 1,
-                borderColor: 'rgba(102, 98, 98, 0.3)',
+                borderColor: colors.border,
                 opacity: (loading || !isFormReady) ? 0.4 : 1,
               }}
             >
-              <Text style={{ color: '#0f172a', fontWeight: '600', fontSize: 14 }}>Scan Menu</Text>
+              <Text style={{ color: colors.text, fontFamily: 'Inter-SemiBold', fontSize: 14 }}>Scan Menu</Text>
               <Text style={{ fontSize: 16 }}>📷</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={{ flex: 1.2 }} />
         </View>
         {/* results are shown on the /results page via ResultTextel */}
       </SafeAreaView>
 
-      {/* ─── Debug Panel (dev only) ──────────────────────────────────── */}
-      {__DEV__ && (
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: 'rgba(0,0,0,0.85)',
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          borderTopWidth: 1,
-          borderTopColor: '#333',
-        }}>
-          <Text style={{ color: '#f97316', fontWeight: '700', fontSize: 11, letterSpacing: 1 }}>🛠 DEBUG</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setResults(MOCK_RESULTS);
-              router.push('/results');
-            }}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: '#22c55e',
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Results</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              router.push({
-                pathname: '/scan',
-                params: { imageUri: 'https://placehold.co/400x600/1e293b/white?text=Mock+Menu' }
-              });
-            }}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: '#3b82f6',
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Scan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true);
-              // Auto-dismiss after 5 seconds so you don't get stuck!
-              setTimeout(() => setLoading(false), 5000);
-            }}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: '#a855f7', // Purple for the loading debug button
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Load</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+
 
       {selected && (
         <ResultLightbox result={selected} onClose={() => setSelected(null)} />

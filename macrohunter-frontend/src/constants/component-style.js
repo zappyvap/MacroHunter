@@ -10,6 +10,7 @@ import {
   View as RNView,
 } from 'react-native';
 import styles from '../constants/styles';
+import colors from './colors';
 
 export function getStyleFromClassName(className, styleMap = styles) {
   if (!className) return undefined;
@@ -25,11 +26,11 @@ export function View({ className, style, ...props }) {
 }
 
 export function Text({ className, style, ...props }) {
-  return <RNText {...props} style={[getStyleFromClassName(className), style]} />;
+  return <RNText {...props} style={[{ fontFamily: 'Inter-Regular', color: colors.text }, getStyleFromClassName(className), style]} />;
 }
 
 export function TextInput({ className, style, ...props }) {
-  return <RNTextInput {...props} style={[getStyleFromClassName(className), style]} />;
+  return <RNTextInput {...props} placeholderTextColor={colors.muted} style={[{ fontFamily: 'Inter-Regular', color: colors.text }, getStyleFromClassName(className), style]} />;
 }
 
 export function TouchableOpacity({ className, style, ...props }) {
