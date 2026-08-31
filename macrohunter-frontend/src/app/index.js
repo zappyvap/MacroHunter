@@ -735,73 +735,7 @@ function HunterPage() {
         {/* results are shown on the /results page via ResultTextel */}
       </SafeAreaView>
 
-      {/* ─── Debug Panel (dev only) ──────────────────────────────────── */}
-      {__DEV__ && (
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: 'rgba(0,0,0,0.85)',
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          borderTopWidth: 1,
-          borderTopColor: '#333',
-        }}>
-          <Text style={{ color: '#f97316', fontWeight: '700', fontSize: 11, letterSpacing: 1 }}>🛠 DEBUG</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setResults(MOCK_RESULTS);
-              router.push('/results');
-            }}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: '#22c55e',
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Results</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              router.push({
-                pathname: '/scan',
-                params: { imageUri: 'https://placehold.co/400x600/1e293b/white?text=Mock+Menu' }
-              });
-            }}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: '#3b82f6',
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Scan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true);
-              // Auto-dismiss after 5 seconds so you don't get stuck!
-              setTimeout(() => setLoading(false), 5000);
-            }}
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: '#a855f7', // Purple for the loading debug button
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>→ Load</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+
 
       {selected && (
         <ResultLightbox result={selected} onClose={() => setSelected(null)} />
