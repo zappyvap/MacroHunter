@@ -1,5 +1,6 @@
 import { useSearch } from '../context/SearchContext';
 import styles from '../constants/styles'
+import colors from '../constants/colors';
 import { View, Text, TextInput, TouchableOpacity, Image, SafeAreaView } from '../constants/component-style';
 import { ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
@@ -34,7 +35,7 @@ function SkeletonCard() {
 function StarRating({ rating }) {
   const numRating = parseFloat(rating);
   if (isNaN(numRating)) return null;
-  
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -42,7 +43,7 @@ function StarRating({ rating }) {
           const fillAmount = Math.max(0, Math.min(1, numRating - (i - 1)));
           return (
             <View key={i} style={{ width: 14, height: 14, position: 'relative', marginHorizontal: 0.5 }}>
-              <Text style={{ position: 'absolute', top: -1, left: 0, color: '#e2e8f0', fontSize: 13, lineHeight: 14, width: 14, textAlign: 'center' }}>★</Text>
+              <Text style={{ position: 'absolute', top: -1, left: 0, color: colors.surface2, fontSize: 13, lineHeight: 14, width: 14, textAlign: 'center' }}>★</Text>
               <View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${fillAmount * 100}%`, overflow: 'hidden' }}>
                 <Text style={{ position: 'absolute', top: -1, left: 0, color: '#f59e0b', fontSize: 13, lineHeight: 14, width: 14, textAlign: 'center' }}>★</Text>
               </View>
@@ -94,7 +95,7 @@ function ResultCard({ result, index, onPress }) {
       style={{ animationDelay: `${index * 0.07}s` }}
       onPress={() => onPress(result)}
     >
-      {topPick && <View className="top-badge"><Text>⚡ Top Pick</Text></View>}
+      {topPick && <View className="top-badge"><Text style={{ color: colors.bg, fontFamily: 'Inter-Bold' }}>⚡ Top Pick</Text></View>}
       <View style={{ flex: 1, paddingRight: 8 }}>
         <View><Text className="result-name">{dishSummary || "Custom Order"}</Text></View>
         <View className="result-meta" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -126,35 +127,61 @@ function ResultCard({ result, index, onPress }) {
 }
 
 // ─── ResultTextel ─────────────────────────────────────────────────────────────
-function ResultTextel({ loading, results, onCardPress, onBack }) {
+function ResultTextel({ loading, results, onCardPress, onBack, onOpenFilter }) {
   return (
     <View className="panel-right">
-      <TouchableOpacity
-        onPress={onBack}
-        activeOpacity={0.7}
-        style={{
-          alignSelf: 'flex-start',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#ffffff',
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: '#e2e8f0',
-          marginTop: 12,
-          marginBottom: 0,
-          zIndex: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 2,
-        }}
-      >
-        <Text style={{ fontWeight: '800', color: '#64748b', fontSize: 24, marginTop: -2 }}>←</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+        <TouchableOpacity
+          onPress={onBack}
+          activeOpacity={0.7}
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surface,
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginTop: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontFamily: 'Inter-Bold', color: colors.text, fontSize: 24, marginTop: -2 }}>←</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onOpenFilter}
+          activeOpacity={0.7}
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surface,
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginTop: 12,
+            marginRight: 10,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <Line x1="4" y1="6" x2="20" y2="6" />
+            <Line x1="4" y1="12" x2="20" y2="12" />
+            <Line x1="4" y1="18" x2="20" y2="18" />
+          </Svg>
+        </TouchableOpacity>
+      </View>
       <View className="results-header">
         <View>
           <Text className="results-title">
@@ -327,7 +354,7 @@ function ResultLightbox({ result, onClose, topPick = false, onNext, onPrev, hasN
               <Text>No photo available</Text>
             </View>
           )}
-          {topPick && <View className="lb-top-badge"><Text>⚡ Top Pick</Text></View>}
+          {topPick && <View className="lb-top-badge"><Text style={{ color: colors.bg, fontFamily: 'Inter-Bold' }}>⚡ Top Pick</Text></View>}
         </View>
 
         {/* Body */}
@@ -383,7 +410,7 @@ function ResultLightbox({ result, onClose, topPick = false, onNext, onPrev, hasN
           <View className="lb-actions">
             {!isScannedItem && isPhysicalRestaurant && (
               <TouchableOpacity onPress={() => openNavigation(restaurant?.latitude, restaurant?.longitude, restaurantName)} className="lb-directions-btn">
-                <Text>
+                <Text style={{ color: colors.bg, fontFamily: 'Inter-Bold' }}>
                   Get Directions
                 </Text>
               </TouchableOpacity>
@@ -403,43 +430,153 @@ function ResultLightbox({ result, onClose, topPick = false, onNext, onPrev, hasN
 
 
 // ─── ResultsPage ─────────────────────────────────────────────────────────────
+function FilterLightbox({ filters, setFilters, onClose }) {
+  const [localFilters, setLocalFilters] = useState(filters);
+
+  const applyFilters = () => {
+    setFilters(localFilters);
+    onClose();
+  };
+
+  return (
+    <View className="lb-overlay" onPress={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <View className="lb-card" style={{ padding: 24 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <Text style={{ fontFamily: 'Inter-Bold', fontSize: 20, color: colors.text }}>Filters</Text>
+          <TouchableOpacity onPress={onClose} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' }}>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.muted} strokeWidth="2" strokeLinecap="round">
+              <Line x1="18" y1="6" x2="6" y2="18" />
+              <Line x1="6" y1="6" x2="18" y2="18" />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={{ fontFamily: 'Inter-SemiBold', color: colors.muted, marginBottom: 12 }}>Sort By</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+          {['match', 'protein', 'carbs', 'fats'].map(sortOpt => (
+            <TouchableOpacity key={sortOpt} onPress={() => setLocalFilters({ ...localFilters, sortBy: sortOpt })}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8,
+                backgroundColor: localFilters.sortBy === sortOpt ? colors.accent : colors.surface2,
+              }}
+            >
+              <Text style={{ color: localFilters.sortBy === sortOpt ? colors.bg : colors.text, fontFamily: 'Inter-Medium', textTransform: 'capitalize' }}>
+                {sortOpt === 'match' ? 'Best Match' : `Highest ${sortOpt}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={{ fontFamily: 'Inter-SemiBold', color: colors.muted, marginBottom: 12 }}>Max Price</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+          {[null, 10, 20, 30].map(price => (
+            <TouchableOpacity key={price || 'any'} onPress={() => setLocalFilters({ ...localFilters, maxPrice: price })}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8,
+                backgroundColor: localFilters.maxPrice === price ? colors.accent : colors.surface2,
+              }}
+            >
+              <Text style={{ color: localFilters.maxPrice === price ? colors.bg : colors.text, fontFamily: 'Inter-Medium' }}>
+                {price ? `$${price}` : 'Any'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+          <Text style={{ fontFamily: 'Inter-SemiBold', color: colors.text, fontSize: 16 }}>Verified Sources Only</Text>
+          <TouchableOpacity
+            onPress={() => setLocalFilters({ ...localFilters, onlyVerified: !localFilters.onlyVerified })}
+            style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: localFilters.onlyVerified ? colors.accent : colors.surface2, padding: 2, justifyContent: 'center' }}
+          >
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.bg, transform: [{ translateX: localFilters.onlyVerified ? 22 : 0 }] }} />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={applyFilters} style={{ backgroundColor: colors.accent, paddingVertical: 16, borderRadius: 12, alignItems: 'center' }}>
+          <Text style={{ color: colors.bg, fontFamily: 'Inter-Bold', fontSize: 16 }}>Apply Filters</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ─── ResultsPage ─────────────────────────────────────────────────────────────
 // reads the search results from context and displays them as cards with a lightbox detail view
 export default function ResultsPage() {
   const { results, setResults } = useSearch();
   const [selectedResult, setSelectedResult] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({ maxPrice: null, onlyVerified: false, sortBy: 'match' });
 
-  const currentIndex = results ? results.findIndex(r => r === selectedResult) : -1;
-  const hasNext = results && currentIndex !== -1 && currentIndex < results.length - 1;
-  const hasPrev = results && currentIndex > 0;
+  const filteredResults = React.useMemo(() => {
+    if (!results) return null;
+    let res = [...results];
+
+    if (filters.maxPrice) {
+      res = res.filter(r => (r.total_cost || r.price || 0) <= filters.maxPrice);
+    }
+    if (filters.onlyVerified) {
+      res = res.filter(r => !r.estimated);
+    }
+
+    if (filters.sortBy === 'protein') {
+      res.sort((a, b) => ((b.achieved_macros?.p ?? b.protein ?? 0) - (a.achieved_macros?.p ?? a.protein ?? 0)));
+    } else if (filters.sortBy === 'carbs') {
+      res.sort((a, b) => ((b.achieved_macros?.c ?? b.carbs ?? 0) - (a.achieved_macros?.c ?? a.carbs ?? 0)));
+    } else if (filters.sortBy === 'fats') {
+      res.sort((a, b) => ((b.achieved_macros?.f ?? b.fats ?? 0) - (a.achieved_macros?.f ?? a.fats ?? 0)));
+    } else if (filters.sortBy === 'match') {
+      res.sort((a, b) => {
+        const scoreA = a.status === "Optimal" ? 100 : Math.max(0, 100 - ((a.gaps?.p || 0) + (a.gaps?.c || 0) + (a.gaps?.f || 0)));
+        const scoreB = b.status === "Optimal" ? 100 : Math.max(0, 100 - ((b.gaps?.p || 0) + (b.gaps?.c || 0) + (b.gaps?.f || 0)));
+        return scoreB - scoreA;
+      });
+    }
+
+    return res;
+  }, [results, filters]);
+
+  const currentIndex = filteredResults ? filteredResults.findIndex(r => r === selectedResult) : -1;
+  const hasNext = filteredResults && currentIndex !== -1 && currentIndex < filteredResults.length - 1;
+  const hasPrev = filteredResults && currentIndex > 0;
 
   const handleNext = () => {
-    if (hasNext) setSelectedResult(results[currentIndex + 1]);
+    if (hasNext) setSelectedResult(filteredResults[currentIndex + 1]);
   };
 
   const handlePrev = () => {
-    if (hasPrev) setSelectedResult(results[currentIndex - 1]);
+    if (hasPrev) setSelectedResult(filteredResults[currentIndex - 1]);
   };
 
   return (
     <SafeAreaView className="container">
       <ResultTextel
         loading={false}
-        results={results}
+        results={filteredResults}
         onCardPress={(r) => setSelectedResult(r)}
         onBack={() => {
           setResults(null);
           router.push('/');
         }}
+        onOpenFilter={() => setFilterOpen(true)}
       />
       {selectedResult && (
         <ResultLightbox
           result={selectedResult}
           onClose={() => setSelectedResult(null)}
-          topPick={selectedResult === results?.[0] && selectedResult.status === "Optimal"}
+          topPick={selectedResult === filteredResults?.[0] && selectedResult.status === "Optimal" && filters.sortBy === 'match'}
           onNext={handleNext}
           onPrev={handlePrev}
           hasNext={hasNext}
           hasPrev={hasPrev}
+        />
+      )}
+      {filterOpen && (
+        <FilterLightbox
+          filters={filters}
+          setFilters={setFilters}
+          onClose={() => setFilterOpen(false)}
         />
       )}
     </SafeAreaView>

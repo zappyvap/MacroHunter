@@ -152,7 +152,7 @@ function ResultLightbox({ result, onClose }) {
           <View className="lb-restaurant">
             {/* NEED TO CHANGE */}
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
             </svg>
             <Text>{restaurantName}</Text>
           </View>
@@ -199,8 +199,8 @@ function ResultLightbox({ result, onClose }) {
               className="lb-directions-btn"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                <circle cx="12" cy="9" r="2.5" fill="white" stroke="white"/>
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                <circle cx="12" cy="9" r="2.5" fill="white" stroke="white" />
               </svg>
               Get Directions
             </Text>
@@ -236,14 +236,14 @@ function CaloriesCard({ calories, setCalories }) {
 // ─── MacrosCard ───────────────────────────────────────────────────────────────
 const MACRO_FIELDS = [
   { label: "Protein", color: "var(--protein)", cls: "protein", key: "protein" },
-  { label: "Carbs",   color: "var(--carbs)",   cls: "carbs",   key: "carbs"   },
-  { label: "Fats",    color: "var(--fats)",     cls: "fats",    key: "fats"    },
+  { label: "Carbs", color: "var(--carbs)", cls: "carbs", key: "carbs" },
+  { label: "Fats", color: "var(--fats)", cls: "fats", key: "fats" },
 ];
 
 function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
-  const vals    = { protein, carbs, fats };
+  const vals = { protein, carbs, fats };
   const setters = { protein: setProtein, carbs: setCarbs, fats: setFats };
-  const total   = (+protein || 0) + (+carbs || 0) + (+fats || 0);
+  const total = (+protein || 0) + (+carbs || 0) + (+fats || 0);
   return (
     <View className="macros-card">
       <View className="section-label"><Text>Macro Targets</Text></View>
@@ -265,8 +265,8 @@ function MacrosCard({ protein, setProtein, carbs, setCarbs, fats, setFats }) {
       {total > 0 && (
         <View className="macro-bars">
           <MacroBar label="PRO" value={+protein || 0} max={total} color="var(--protein)" />
-          <MacroBar label="CHO" value={+carbs   || 0} max={total} color="var(--carbs)"   />
-          <MacroBar label="FAT" value={+fats    || 0} max={total} color="var(--fats)"    />
+          <MacroBar label="CHO" value={+carbs || 0} max={total} color="var(--carbs)" />
+          <MacroBar label="FAT" value={+fats || 0} max={total} color="var(--fats)" />
         </View>
       )}
     </View>
@@ -373,13 +373,13 @@ function ResultTextel({ loading, results, onCardClick }) {
 // ─── HunterPage ───────────────────────────────────────────────────────────────
 function HunterPage() {
   const [calories, setCalories] = useState("");
-  const [protein,  setProtein]  = useState("");
-  const [carbs,    setCarbs]    = useState("");
-  const [fats,     setFats]     = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fats, setFats] = useState("");
   const [locState, setLocState] = useState("idle");
   const [location, setLocation] = useState({ name: "Click search to detect location", coords: null, lat: null, lng: null });
-  const [loading,  setLoading]  = useState(false);
-  const [results,  setResults]  = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState(null);
   const [selected, setSelected] = useState(null);
 
   const isFormReady = calories && protein && carbs && fats;
@@ -394,8 +394,8 @@ function HunterPage() {
       target_carbs: +carbs, target_fats: +fats,
     };
     try {
-      {/*NEED TO CHANGE*/}
-      const res  = await fetch("http://127.0.0.1:8000/api/optimize-meal", {
+      {/*NEED TO CHANGE*/ }
+      const res = await fetch("http://127.0.0.1:8000/api/optimize-meal", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -416,7 +416,7 @@ function HunterPage() {
     }
     setLocState("acquiring");
     setLocation(prev => ({ ...prev, name: "Requesting location…", coords: "Waiting for permission" }));
-    {/*NEED TO CHANGE*/}
+    {/*NEED TO CHANGE*/ }
     navigator.geolocation.getCurrentPosition(
       pos => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
@@ -445,11 +445,11 @@ function HunterPage() {
           <View>
             <View className="section-label"><Text>Your Daily Target</Text></View>
             <View className="hero-text">
-              <Text>Hunt Your</Text>
+              <Text>Enter Your</Text>
               <Text>Macros</Text>
             </View>
             <View className="hero-sub" style={{ marginTop: 10 }}>
-              <Text>Enter your nutrition goals and we'll find the best meals near you.</Text>
+              <Text>We will find you the best meals that match your wanted macronutrients.</Text>
             </View>
           </View>
           <CaloriesCard calories={calories} setCalories={setCalories} />
@@ -489,26 +489,26 @@ function AppLayout({ locState, children }) {
     <>
       <View className="app">
         <View className="radar-bg">
-          {[300,240,180,120,60].map((s,i) => <View key={i} className="radar-ring" style={{ width: s, height: s }} />)}
+          {[300, 240, 180, 120, 60].map((s, i) => <View key={i} className="radar-ring" style={{ width: s, height: s }} />)}
           <View className="radar-sweep" />
         </View>
         <View className="app-overlay" />
-          <View className="logo-mark">
-            {/* NEED TO CHANGE */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: "var(--accent)" }}>
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-              <circle cx="12" cy="12" r="9" strokeDasharray="4 3" />
-            </svg>
-          </View>
-          <View>
-            <View className="logo-text"><Text>MacroHunter</Text></View>
-            <View className="logo-sub"><Text>Find your perfect meal</Text></View>
-          </View>
-          <View className="header-right">
-            <View className={`status-dot ${locState === "denied" ? "denied" : ""}`} />
-            <Text>{locState === "acquiring" ? "Acquiring GPS…" : locState === "ready" ? "GPS Active" : locState === "denied" ? "GPS Denied" : "GPS Standby"}</Text>
-          </View>
+        <View className="logo-mark">
+          {/* NEED TO CHANGE */}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: "var(--accent)" }}>
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+            <circle cx="12" cy="12" r="9" strokeDasharray="4 3" />
+          </svg>
+        </View>
+        <View>
+          <View className="logo-text"><Text>MacroHunter</Text></View>
+          <View className="logo-sub"><Text>Find your perfect meal</Text></View>
+        </View>
+        <View className="header-right">
+          <View className={`status-dot ${locState === "denied" ? "denied" : ""}`} />
+          <Text>{locState === "acquiring" ? "Acquiring GPS…" : locState === "ready" ? "GPS Active" : locState === "denied" ? "GPS Denied" : "GPS Standby"}</Text>
+        </View>
         {children}
       </View>
     </>

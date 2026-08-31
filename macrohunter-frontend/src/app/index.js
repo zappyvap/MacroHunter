@@ -662,22 +662,22 @@ function HunterPage() {
           <View style={{ position: 'relative', width: '100%', paddingTop: 44 }}>
             <View style={{ alignItems: 'center' }}>
               <View justifyContent="center" alignItems="center" gap={2}>
-                <Text className="hero-text">Hunt Your Macros</Text>
+                <Text className="hero-text">Enter Your Macros</Text>
               </View>
-              <View style={{ marginTop: 10 }}>
-                <Text className="hero-sub">Enter your nutrition goals and we'll find the best meals near you.</Text>
+              <View style={{ marginTop: 10, paddingHorizontal: 20 }}>
+                <Text className="hero-sub" style={{ textAlign: 'center' }}>Tell us your macronutrients goals and we'll find the best meals near you.</Text>
               </View>
             </View>
           </View>
-          
+
           <View style={{ flex: 0.3 }} />
-          
+
           <CaloriesCard calories={calories} setCalories={setCalories} />
-          
+
           <View style={{ flex: 0.2 }} />
-          
+
           <MacrosCard protein={protein} setProtein={setProtein} carbs={carbs} setCarbs={setCarbs} fats={fats} setFats={setFats} />
-          
+
           <View style={{ flex: 0.4 }} />
 
           <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
@@ -691,17 +691,17 @@ function HunterPage() {
               {loading ? (
                 <>
                   <Text className="spin">◈</Text>
-                  <Text style={{ color: '#64748b' }}>Scanning Area…</Text>
+                  <Text style={{ color: colors.muted }}>Scanning Area…</Text>
                 </>
               ) : locState === "acquiring" ? (
                 <>
                   <Text className="spin">◈</Text>
-                  <Text style={{ color: '#64748b' }}>Awaiting Permission…</Text>
+                  <Text style={{ color: colors.muted }}>Awaiting Permission…</Text>
                 </>
               ) : (
                 <>
                   <View className="btn-shimmer" />
-                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>⌖ Hunt Meals Nearby</Text>
+                  <Text style={{ color: colors.bg, fontFamily: 'Inter-Bold' }}>⌖ Hunt Meals Nearby</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -719,13 +719,13 @@ function HunterPage() {
                 paddingVertical: 16,
                 paddingHorizontal: 12,
                 borderRadius: 12,
-                backgroundColor: 'rgba(20, 19, 19, 0.08)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderWidth: 1,
-                borderColor: 'rgba(102, 98, 98, 0.3)',
+                borderColor: colors.border,
                 opacity: (loading || !isFormReady) ? 0.4 : 1,
               }}
             >
-              <Text style={{ color: '#0f172a', fontWeight: '600', fontSize: 14 }}>Scan Menu</Text>
+              <Text style={{ color: colors.text, fontFamily: 'Inter-SemiBold', fontSize: 14 }}>Scan Menu</Text>
               <Text style={{ fontSize: 16 }}>📷</Text>
             </TouchableOpacity>
           </View>
