@@ -131,7 +131,7 @@ export default function Scan() {
         target_fats: +scanPayload.fats,
       };
 
-      const hostIp = process.env.EXPO_PUBLIC_HOST_IP || '10.0.0.241';
+      const hostIp = process.env.EXPO_PUBLIC_HOST_IP || '10.0.0.109';
       const es = new EventSource(`http://${hostIp}:8000/api/optimize-menu-image-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
