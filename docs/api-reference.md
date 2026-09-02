@@ -47,7 +47,7 @@ All endpoints below return `text/event-stream` responses. The frontend receives 
 
 ### Node-to-UI Message Translations
 
-The backend translates internal graph node names into user-facing messages:
+The backend translates internal graph node names into user-facing messages via the `NODE_TRANSLATIONS` dict in `engine.py`:
 
 | Node | Headline | Detail |
 |---|---|---|
@@ -56,6 +56,23 @@ The backend translates internal graph node names into user-facing messages:
 | `image_translation` | 🧬 Calculating macros... | "Extracting protein and calorie counts from menu..." |
 | `optimizer` | Optimizing menu items... | "Optimizing {N} menu items..." |
 | `judge` | Adding final touches... | "Sorting by price..." |
+
+Any graph node not in `NODE_TRANSLATIONS` falls back to: `"Executing step: {node_name}"`.
+
+### Initial SSE Messages
+
+Each streaming helper yields an immediate first event before the graph starts processing:
+
+- **Search path:** `"🔍 Finding restaurants near you..."`
+- **Vision path:** `"📷 Reading menu layout and identifying items..."`
+
+### Timing Logs
+
+Each SSE event also logs timing information to the server console:
+```
+⏱  [stream] find_restaurants: +1.23s (total: 1.23s)
+⏱  [stream] fetch_and_optimize: +4.56s (total: 5.79s)
+```
 
 ---
 
@@ -101,6 +118,23 @@ SSE stream. The stream immediately yields an initial event to update the UI:
 ```
 The final `done` event contains `results` — an array of Order Result Objects (see [Response Schema Reference](#response-schema-reference)).
 
+#### Internal State Initialization
+
+The endpoint builds the following initial state for the LangGraph:
+```python
+{
+    "searching_for_restaurant": True,
+    "lat": request.latitude,
+    "lon": request.longitude,
+    "target_calories": request.target_calories,
+    "target_protein": request.target_protein,
+    "target_carbs": request.target_carbs,
+    "target_fats": request.target_fats,
+    "current_restaurant_index": 0,
+    "image_b64": None
+}
+```
+
 ---
 
 ### `POST /api/optimize-menu-image-stream`
@@ -125,7 +159,7 @@ Upload a menu photo as base64-encoded JSON and get optimized meal suggestions. R
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `image_b64` | `string` | Yes | Base64-encoded image data |
+| `image_b64` | `string` | Yes | Base64-encoded image data (validated: returns 400 if empty) |
 | `target_calories` | `float` | Yes | Daily calorie ceiling |
 | `target_protein` | `float` | Yes | Target protein in grams |
 | `target_carbs` | `float` | Yes | Target carbs in grams |
@@ -165,7 +199,7 @@ Upload a menu photo as multipart form-data and get optimized meal suggestions. R
 
 #### Response
 
-SSE stream. Same event format and result structure as `/api/optimize-menu-image-stream`.
+SSE stream. Same event format and result structure as `/api/optimize-menu-image-stream`. The endpoint internally converts the uploaded file to base64 before passing it to the graph.
 
 ---
 
@@ -187,12 +221,13 @@ Translates a menu image into structured nutrition data.
 
 #### Processing Pipeline
 
-1. Gemini 2.5 Flash Vision extracts menu items and raw ingredients (with structured output schema)
-2. Ingredients are named using USDA-style format (e.g., "Beef, ground, 80% lean, raw")
-3. Portion sizes are estimated for large restaurant servings
-4. Prices are extracted from the menu image (default: $10.00 if not visible)
-5. Each ingredient is analyzed via `ingredient_analyzer` for USDA macro lookup
-6. Final results include per-item macros and prices
+1. Opens image via Pillow (`PIL.Image.open`)
+2. Sends image + extraction prompt to Gemini 2.5 Flash Vision with structured output schema (`list[RestaurantItems]`, temperature 0.1)
+3. Gemini extracts: item names, ingredients with USDA-style naming, quantities with units, and prices
+4. Portion sizes are calibrated for large restaurant servings (fast food vs. sit-down vs. pub, explicitly specified in the system prompt)
+5. Results are converted to legacy dict format and passed to `run_analyze_ingredient()` for USDA macro lookup
+6. Each item is mapped back to its Gemini-extracted price (defaults to $10.00 if not found)
+7. All items are marked as `estimated: true` since macros are AI-derived
 
 #### Response
 
@@ -204,7 +239,8 @@ Translates a menu image into structured nutrition data.
     "protein": 45,
     "carbs": 55,
     "fats": 42,
-    "price": 12.99
+    "price": 12.99,
+    "estimated": true
   }
 ]
 ```
@@ -217,12 +253,12 @@ Translates a menu image into structured nutrition data.
 
 | Field | Type | Description |
 |---|---|---|
-| `status` | `string` | `"Optimal"` or `"Best Effort"` |
+| `status` | `string` | `"Optimal"` (all macro slacks = 0) or `"Best Effort"` (some gaps remain) |
 | `total_cost` | `float` | Estimated total price in USD |
 | `achieved_macros` | `object` | `{ cal, p, c, f }` — what the order actually provides |
 | `gaps` | `object` | `{ cal, p, c, f }` — shortfall from targets (0 = perfect) |
 | `order` | `array` | List of `{ item, quantity, estimated }` |
-| `restaurant` | `string \| object` | Restaurant name (vision path) or full restaurant object (search path) |
+| `restaurant` | `string \| object` | Restaurant name string (vision path) or full Restaurant Object (search path) |
 | `estimated` | `bool` | `true` if macros were AI-estimated (not from a nutrition database) |
 
 ### Restaurant Object (Search Path)
@@ -233,7 +269,7 @@ Translates a menu image into structured nutrition data.
 | `address` | `string` | Street address |
 | `rating` | `float` | Google rating (1–5) |
 | `total_ratings` | `int` | Number of Google ratings |
-| `photo_url` | `string \| null` | Google Places photo URL |
+| `photo_url` | `string \| null` | Google Places photo URL (400px max width) |
 | `latitude` | `float` | Restaurant latitude coordinate |
 | `longitude` | `float` | Restaurant longitude coordinate |
 
@@ -244,3 +280,23 @@ Translates a menu image into structured nutrition data.
 | `item` | `string` | Menu item name |
 | `quantity` | `int` | Number to order |
 | `estimated` | `bool` | `true` if macros were AI-estimated (not from a nutrition database) |
+
+### Pydantic Request Models
+
+```python
+class UserRequest(BaseModel):
+    searching_for_restaurant: bool
+    latitude: float | None = None
+    longitude: float | None = None
+    target_calories: float
+    target_protein: float
+    target_carbs: float
+    target_fats: float
+
+class ImageRequest(BaseModel):
+    image_b64: str
+    target_calories: float
+    target_protein: float
+    target_carbs: float
+    target_fats: float
+```
