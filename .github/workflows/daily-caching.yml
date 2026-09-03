@@ -1,8 +1,8 @@
 name: Bi-weekly Caching
 
 on:
-  schedule:
-    - cron: '0 7 1,15 * *'  # 3 AM EDT / 7 AM UTC on the 1st and 15th of every month
+  # schedule:
+  #   - cron: '0 7 1,15 * *'  # 3 AM EDT / 7 AM UTC on the 1st and 15th of every month
   workflow_dispatch:
 
 jobs:
